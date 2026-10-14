@@ -1,0 +1,18 @@
+{
+  "name": "Cynthia's Daily Education",
+  "short_name": "Cynthia",
+  "description": "One gentle word a day for Cynthia, with a short guide for her parents.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FFF6EF",
+  "theme_color": "#E56B8A",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
