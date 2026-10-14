@@ -9,7 +9,23 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const context = { globalThis: null };
 context.globalThis = context;
 vm.createContext(context);
-vm.runInContext(`${read("js/lessons.js")}\n${read("js/illustrations.js")}\nglobalThis.LESSONS = CYNTHIA_LESSONS;\nglobalThis.THEMES = CYNTHIA_THEMES;\nglobalThis.ART = CynthiaArt;`, context);
+vm.runInContext([
+  read("js/lessons.js"),
+  read("js/vera.js"),
+  read("js/mayla.js"),
+  read("js/noah.js"),
+  read("js/illustrations.js"),
+  read("js/art-vera.js"),
+  read("js/art-noah.js"),
+  read("js/children.js"),
+  "globalThis.LESSONS = CYNTHIA_LESSONS;",
+  "globalThis.THEMES = CYNTHIA_THEMES;",
+  "globalThis.ART = CynthiaArt;",
+  "globalThis.VERA = VERA_LESSONS;",
+  "globalThis.MAYLA = MAYLA_LESSONS;",
+  "globalThis.NOAH = NOAH_LESSONS;",
+  "globalThis.CHILDREN = EDU_CHILDREN;",
+].join("\n"), context);
 
 const lessons = context.LESSONS;
 const themes = new Set(context.THEMES.map((theme) => theme.id));
@@ -68,11 +84,181 @@ if (python.status !== 0) fail(python.stderr.toString());
 const xmlErrors = python.stdout.toString().trim();
 if (xmlErrors) fail(xmlErrors);
 
+function checkChild(name, list, themes, options) {
+  if (list.length < 60) fail(`${name} expected at least 60 lessons, found ${list.length}`);
+  const seen = new Set();
+  const themeIds = new Set(themes.map((theme) => theme.id));
+  list.forEach((lesson, index) => {
+    if (!lesson.id || seen.has(lesson.id)) fail(`${name} bad or duplicate id at ${index}: ${lesson.id}`);
+    seen.add(lesson.id);
+    for (const key of ["word", "say", "sentence", "theme", "motion", "particles"]) {
+      if (!lesson[key]) fail(`${name} ${lesson.id} missing ${key}`);
+    }
+    if (!themeIds.has(lesson.theme)) fail(`${name} ${lesson.id} has unknown theme ${lesson.theme}`);
+    if (!Array.isArray(lesson.related) || lesson.related.length < 1) fail(`${name} ${lesson.id} needs related words`);
+    for (const key of ["minutes", "how", "activity", "question", "followup", "why"]) {
+      if (!lesson.guide || !lesson.guide[key]) fail(`${name} ${lesson.id} guide missing ${key}`);
+    }
+    if (lesson.sound && !sounds.has(lesson.sound)) fail(`${name} ${lesson.id} uses unknown sound ${lesson.sound}`);
+    const picture = lesson.picture || lesson.id;
+    const svg = context.ART.svg(picture);
+    if (!svg.includes("<svg") || !svg.includes(`id="${picture}-`) && svg.includes("fallback-bg")) {
+      fail(`${name} ${lesson.id} is using the fallback picture`);
+    }
+    if (!context.ART.ids().includes(picture)) fail(`${name} ${lesson.id} picture ${picture} is missing`);
+    svgs.push({ id: `${name}-${lesson.id}`, svg });
+  });
+  if (options.firstWords) {
+    options.firstWords.forEach((word, index) => {
+      if (!list[index] || list[index].word !== word) {
+        fail(`${name} lesson ${index + 1} should be ${word}, found ${list[index] && list[index].word}`);
+      }
+    });
+  }
+  if (options.sentenceHas) {
+    list.forEach((lesson) => {
+      if (!lesson.sentence.includes(options.sentenceHas)) {
+        fail(`${name} ${lesson.id} sentence should include ${options.sentenceHas}`);
+      }
+    });
+  }
+}
+
+checkChild("Vera", context.VERA, context.CHILDREN.find((child) => child.id === "vera").themes, {
+  firstWords: ["Mama", "Dada", "Hi", "Ball", "Peekaboo"],
+});
+checkChild("Mayla", context.MAYLA, context.CHILDREN.find((child) => child.id === "mayla").themes, {
+  firstWords: ["Hi", "Mama", "Dada", "Ball", "More", "Milk", "Bye-bye", "Dog", "Up", "All done"],
+  sentenceHas: "Mayla",
+});
+checkChild("Noah", context.NOAH, context.CHILDREN.find((child) => child.id === "noah").themes, {});
+
+context.NOAH.forEach((lesson, index) => {
+  const expect = index % 2 === 0 ? "history" : "science";
+  if (lesson.subject !== expect) fail(`Noah ${lesson.id} should be ${expect}`);
+  const quiz = lesson.quiz;
+  if (!lesson.read) fail(`Noah ${lesson.id} missing read`);
+  if (!quiz || !Array.isArray(quiz.choices) || quiz.choices.length !== 3) fail(`Noah ${lesson.id} needs 3 quiz choices`);
+  if (!Number.isInteger(quiz.answer) || quiz.answer < 0 || quiz.answer > 2) fail(`Noah ${lesson.id} has a bad quiz answer`);
+  if (!quiz.prompt || !quiz.explain) fail(`Noah ${lesson.id} quiz needs a prompt and an explanation`);
+});
+
+const byId = Object.fromEntries(context.NOAH.map((lesson) => [lesson.id, lesson]));
+const expectFact = (id, snippet) => {
+  const lesson = byId[id];
+  const blob = `${lesson.read} ${lesson.quiz.explain}`;
+  if (!blob.includes(snippet)) fail(`Noah ${id} should mention ${snippet}`);
+};
+expectFact("n-flag", "13 stripes");
+expectFact("n-flag", "50 stars");
+expectFact("n-flag", "Seven stripes are red and six are white");
+expectFact("n-flag", "July 4, 1960");
+expectFact("n-states", "50 states");
+expectFact("n-states", "Alaska is the largest");
+expectFact("n-states", "Rhode Island is the smallest");
+expectFact("n-washington", "1789 to 1797");
+expectFact("n-leaf", "carbon dioxide");
+expectFact("n-leaf", "oxygen");
+expectFact("n-leaf", "chlorophyll");
+expectFact("n-lincoln", "16th president");
+expectFact("n-lincoln", "January 1, 1863");
+expectFact("n-cheetah", "60 to 70 miles an hour");
+expectFact("n-gettysburg", "1863");
+expectFact("n-peregrine", "faster than 200 miles an hour");
+expectFact("n-peregrine", "dive");
+expectFact("n-liberty", "October 28, 1886");
+expectFact("n-liberty", "France");
+expectFact("n-whale", "80 to 100 feet");
+expectFact("n-liberty-size", "151 feet");
+expectFact("n-liberty-size", "305 feet");
+expectFact("n-elephant", "largest land animal");
+expectFact("n-july4", "July 4, 1776");
+expectFact("n-giraffe", "16 to 18 feet");
+expectFact("n-thanks", "fourth Thursday of November");
+expectFact("n-thanks", "Wampanoag");
+expectFact("n-thanks", "1941");
+expectFact("n-insects", "6 legs");
+expectFact("n-bell", "Philadelphia");
+expectFact("n-bell", "1752");
+expectFact("n-bell", "1846");
+expectFact("n-bell", "Leviticus 25:10");
+expectFact("n-spider", "8 legs");
+expectFact("n-constitution", "September 17, 1787");
+expectFact("n-polarbear", "Arctic");
+expectFact("n-whitehouse", "1600 Pennsylvania Avenue");
+expectFact("n-whitehouse", "1800");
+expectFact("n-penguin", "Antarctica");
+expectFact("n-capital", "not a state");
+expectFact("n-oceans", "Pacific, the Atlantic, the Indian, the Southern, and the Arctic");
+expectFact("n-congress", "100 senators");
+expectFact("n-congress", "435");
+expectFact("n-pacific", "largest ocean");
+expectFact("n-pacific", "one third");
+expectFact("n-vote", "18");
+expectFact("n-vote", "26th Amendment");
+expectFact("n-water", "71 percent");
+expectFact("n-anthem", "1814");
+expectFact("n-anthem", "1931");
+expectFact("n-anthem", "Fort McHenry");
+expectFact("n-trench", "36,000 feet");
+expectFact("n-rushmore", "1927 to 1941");
+expectFact("n-rushmore", "Gutzon Borglum");
+expectFact("n-continents", "Africa, Antarctica, Asia, Australia, Europe, North America, and South America");
+expectFact("n-king", "August 28, 1963");
+expectFact("n-africa", "Lions live in parts of Africa");
+expectFact("n-parks", "December 1, 1955");
+expectFact("n-parks", "Montgomery");
+expectFact("n-antarctica", "No cities stay there all year");
+expectFact("n-apollo", "July 20, 1969");
+expectFact("n-apollo", "Michael Collins");
+expectFact("n-asia", "largest continent");
+expectFact("n-asia", "Giant pandas");
+expectFact("n-juneteenth", "June 19, 1865");
+expectFact("n-juneteenth", "2021");
+expectFact("n-australia", "smallest continent");
+expectFact("n-australia", "Kangaroos");
+expectFact("n-veterans", "November 11");
+expectFact("n-europe", "European hedgehog");
+expectFact("n-memorial", "last Monday in May");
+expectFact("n-bison", "American bison");
+expectFact("n-term", "4 years");
+expectFact("n-term", "22nd Amendment");
+expectFact("n-jaguar", "Central America");
+expectFact("n-court", "9 justices");
+expectFact("n-cycle", "The Sun warms water");
+expectFact("n-yellowstone", "1872");
+expectFact("n-spin", "24 hours");
+expectFact("n-hawaii", "January 3, 1959");
+expectFact("n-hawaii", "August 21, 1959");
+expectFact("n-tilt", "23.5 degrees");
+expectFact("n-california", "39,538,223");
+expectFact("n-year", "365 days");
+expectFact("n-rhode", "smallest state by area");
+expectFact("n-moon", "29.5 days");
+expectFact("n-revere", "William Dawes");
+expectFact("n-revere", "Samuel Prescott");
+expectFact("n-planets", "Eight planets");
+expectFact("n-planets", "dwarf planet");
+expectFact("n-eagle", "1782");
+expectFact("n-sun", "93 million miles");
+expectFact("n-hall", "Philadelphia");
+expectFact("n-dinosaurs", "66 million years");
+
+const childKeys = context.CHILDREN.map((child) => child.keys.done);
+if (new Set(childKeys).size !== 4) fail("each child needs a separate stars key");
+if (context.CHILDREN[0].keys.done !== "cynthia-done") fail("Cynthia stars must stay on cynthia-done");
+
 const siteFiles = [
   "index.html",
   "css/styles.css",
   "js/lessons.js",
+  "js/vera.js",
+  "js/mayla.js",
+  "js/noah.js",
   "js/illustrations.js",
+  "js/art-vera.js",
+  "js/art-noah.js",
+  "js/children.js",
   "js/audio.js",
   "js/app.js",
   "favicon.svg",
@@ -92,4 +278,4 @@ if (failures.length) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log(`ok ${lessons.length} lessons, ${sounds.size} sounds`);
+console.log(`ok cynthia ${lessons.length}, vera ${context.VERA.length}, mayla ${context.MAYLA.length}, noah ${context.NOAH.length}, ${sounds.size} sounds`);

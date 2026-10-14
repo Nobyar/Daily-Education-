@@ -838,5 +838,9 @@ const CynthiaArt = (() => {
     return draw ? draw() : fallback();
   }
 
-  return { svg, ids: () => Object.keys(PICTURES) };
+  function add(extra) {
+    Object.assign(PICTURES, extra);
+  }
+
+  return { svg, ids: () => Object.keys(PICTURES), add };
 })();

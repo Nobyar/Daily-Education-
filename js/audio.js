@@ -123,6 +123,19 @@ const CynthiaAudio = (() => {
       noise(c, { dur: 0.08, freq: 400, q: 1, gain: 0.04, at });
       tone(c, { freq: 220, to: 120, dur: 0.14, type: "triangle", gain: 0.055, delay: 0.16, at });
     },
+    bell(c, at) {
+      tone(c, { freq: 880, to: 660, dur: 0.45, type: "sine", gain: 0.05, at });
+      tone(c, { freq: 1320, to: 990, dur: 0.4, type: "triangle", gain: 0.02, at });
+    },
+    drum(c, at) {
+      tone(c, { freq: 140, to: 60, dur: 0.18, type: "sine", gain: 0.08, at });
+      noise(c, { dur: 0.08, freq: 180, q: 0.6, gain: 0.05, at });
+      tone(c, { freq: 120, to: 50, dur: 0.16, type: "sine", gain: 0.07, delay: 0.28, at });
+    },
+    clap(c, at) {
+      noise(c, { dur: 0.05, freq: 1800, q: 0.7, gain: 0.06, at });
+      noise(c, { dur: 0.05, freq: 1400, q: 0.7, gain: 0.05, delay: 0.16, at });
+    },
   };
 
   function play(name, delay) {
@@ -183,7 +196,7 @@ const CynthiaAudio = (() => {
       };
       u.onend = finish;
       u.onerror = finish;
-      window.setTimeout(finish, Math.min(9000, 1400 + String(text).length * 220));
+      window.setTimeout(finish, Math.min(45000, 1600 + String(text).length * 70));
       try { speechSynthesis.resume(); } catch (err) { /* some browsers throw if idle */ }
       speechSynthesis.speak(u);
     });

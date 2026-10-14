@@ -1,11 +1,7 @@
-/* Cynthia's Daily Education — one word a day. */
+/* Daily Education — one lesson a day for each child. */
 
 (function () {
-  const LESSONS = CYNTHIA_LESSONS;
-  const THEMES = CYNTHIA_THEMES;
-  const KEY_START = "cynthia-start";
-  const KEY_DONE = "cynthia-done";
-  const KEY_WELCOME = "cynthia-welcomed";
+  const KEY_CHILD = "cynthia-edu-child";
 
   const main = document.getElementById("main");
   const toast = document.getElementById("toast");
@@ -18,6 +14,33 @@
   let slide = "forward";
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function activeChild() {
+    const saved = storeGet(KEY_CHILD);
+    return EDU_CHILDREN.find((item) => item.id === saved) || EDU_CHILDREN[0];
+  }
+
+  function lessonList() {
+    return activeChild().lessons;
+  }
+
+  function themeList() {
+    return activeChild().themes;
+  }
+
+  function keys() {
+    return activeChild().keys;
+  }
+
+  function siteTitle() {
+    const child = activeChild();
+    return child.id === "cynthia" ? "Cynthia's Daily Education" : `${child.name}'s Daily Education`;
+  }
+
+  function artFor(lesson) {
+    const id = lesson && (lesson.picture || lesson.id);
+    return CynthiaArt.svg(id || lessonList()[0].picture || lessonList()[0].id);
+  }
 
   function storeGet(key) {
     try {
@@ -69,17 +92,17 @@
   }
 
   function getStart() {
-    let saved = storeGet(KEY_START);
+    let saved = storeGet(keys().start);
     if (!saved || !isValidISO(saved)) {
       saved = isoDate(today());
-      storeSet(KEY_START, saved);
+      storeSet(keys().start, saved);
     }
     return parseISO(saved);
   }
 
   function loadDone() {
     try {
-      const raw = JSON.parse(storeGet(KEY_DONE) || "{}");
+      const raw = JSON.parse(storeGet(keys().done) || "{}");
       return raw && typeof raw === "object" ? raw : {};
     } catch (err) {
       return {};
@@ -87,40 +110,40 @@
   }
 
   function saveDone(done) {
-    storeSet(KEY_DONE, JSON.stringify(done));
+    storeSet(keys().done, JSON.stringify(done));
   }
 
   function themeById(id) {
-    return THEMES.find((theme) => theme.id === id) || THEMES[0];
+    return themeList().find((theme) => theme.id === id) || themeList()[0];
   }
 
   function lessonById(id) {
-    return LESSONS.find((lesson) => lesson.id === id) || null;
+    return lessonList().find((lesson) => lesson.id === id) || null;
   }
 
   function lessonForDate(date) {
     const start = getStart();
     const n = daysBetween(start, date);
     if (n < 0) {
-      return { status: "before", daysUntil: -n, index: 0, round: 1, lesson: LESSONS[0] };
+      return { status: "before", daysUntil: -n, index: 0, round: 1, lesson: lessonList()[0] };
     }
-    const index = n % LESSONS.length;
+    const index = n % lessonList().length;
     return {
       status: "ok",
       index,
       day: n + 1,
-      round: Math.floor(n / LESSONS.length) + 1,
-      lesson: LESSONS[index],
+      round: Math.floor(n / lessonList().length) + 1,
+      lesson: lessonList()[index],
     };
   }
 
   function nextDateForLesson(id) {
     const start = getStart();
-    const idx = LESSONS.findIndex((lesson) => lesson.id === id);
+    const idx = lessonList().findIndex((lesson) => lesson.id === id);
     const now = today();
     const n = daysBetween(start, now);
     if (n < 0) return addDays(start, idx);
-    const delta = (idx - (n % LESSONS.length) + LESSONS.length) % LESSONS.length;
+    const delta = (idx - (n % lessonList().length) + lessonList().length) % lessonList().length;
     return addDays(now, delta);
   }
 
@@ -148,6 +171,10 @@
 
   function parseRoute() {
     const parts = (location.hash.replace(/^#/, "") || "/").split("/").filter(Boolean);
+    if (parts[0] === "c" && EDU_CHILDREN.some((item) => item.id === parts[1])) {
+      storeSet(KEY_CHILD, parts[1]);
+      return { view: "lesson", dateISO: isoDate(today()), wordId: null };
+    }
     if (parts[0] === "date" && isValidISO(parts[1] || "")) {
       return { view: "lesson", dateISO: parts[1], wordId: null };
     }
@@ -251,7 +278,8 @@
     }
     if (mode === "sentence") {
       setBubble(lesson.sentence);
-      await CynthiaAudio.speak(lesson.sentence, { rate: 0.82, pitch: 1.02 });
+      const child = activeChild();
+      await CynthiaAudio.speak(lesson.sentence, { rate: child.rates.sentence, pitch: child.pitch.sentence });
       return;
     }
     if (mode === "related") {
@@ -265,7 +293,10 @@
       CynthiaAudio.stopSounds();
       CynthiaAudio.play(lesson.sound, 0.85);
     }
-    await CynthiaAudio.speak(text, { rate: mode === "yay" ? 0.88 : 0.7, pitch: mode === "yay" ? 1.1 : 1.05 });
+    const child = activeChild();
+    const rate = mode === "yay" ? child.rates.yay : child.rates.word;
+    const pitch = mode === "yay" ? child.pitch.yay : child.pitch.word;
+    await CynthiaAudio.speak(text, { rate, pitch });
     if (mine !== speakToken) return;
   }
 
@@ -304,7 +335,8 @@
     CynthiaAudio.unlock();
     CynthiaAudio.celebrate();
     setBubble("Yay!");
-    CynthiaAudio.speak(`Yay! ${lesson.say || lesson.word}`, { rate: 0.88, pitch: 1.1 });
+    const child = activeChild();
+    CynthiaAudio.speak(`Yay! ${lesson.say || lesson.word}`, { rate: child.rates.yay, pitch: child.pitch.yay });
     showToast(already ? `${lesson.word} was already a star.` : `${lesson.word} is a star now.`);
     const starTab = document.querySelector('[data-tab="progress"]');
     if (starTab) {
@@ -357,7 +389,8 @@
     const isToday = route.dateISO === isoDate(today()) && !wordMode;
     const isFuture = !wordMode && info.status === "ok" && daysBetween(today(), date) > 0;
     const isPast = !wordMode && info.status === "ok" && daysBetween(today(), date) < 0;
-    let kicker = "Today's word";
+    const child = activeChild();
+    let kicker = child.kicker;
     if (wordMode) kicker = "From the word list";
     else if (info.status === "before") kicker = "Before Day 1";
     else if (isFuture) kicker = "Coming up";
@@ -365,21 +398,21 @@
     if (!wordMode && info.status === "ok" && info.round > 1) kicker += ` · Round ${info.round}`;
 
     const dayLabel = wordMode
-      ? `Word ${LESSONS.findIndex((item) => item.id === lesson.id) + 1} of ${LESSONS.length}`
+      ? `Word ${lessonList().findIndex((item) => item.id === lesson.id) + 1} of ${lessonList().length}`
       : info.status === "ok"
         ? `Day ${info.day} · ${theme.name}`
         : theme.name;
 
-    document.title = `${lesson.word} · Cynthia's Daily Education`;
+    document.title = `${lesson.word} · ${siteTitle()}`;
 
     if (!wordMode && info.status === "before") {
       main.innerHTML = `
         <article class="lesson view-enter ${slide}" data-theme="${theme.id}">
           ${dayBar(date, kicker)}
           <div class="before card">
-            <div class="picture-wrap static">${CynthiaArt.svg("mama")}</div>
+            <div class="picture-wrap static">${artFor(lessonList()[0])}</div>
             <h1>Day 1 has not started.</h1>
-            <p>Mama begins on ${esc(formatLong(getStart()))}. You can peek at any word in the list, and the days after Day 1 are ready to browse.</p>
+            <p>${esc(lessonList()[0].word)} begins on ${esc(formatLong(getStart()))}. You can peek at any word in the list, and the days after Day 1 are ready to browse.</p>
             <div class="actions">
               <a class="btn primary" href="#/">Go to Day 1</a>
               <a class="btn ghost" href="#/progress">See all the words</a>
@@ -397,9 +430,9 @@
       ? `<button type="button" class="btn ghost" data-act="hear-sound">${speakerIcon()} Hear ${esc(lesson.soundLabel.toLowerCase())}</button>`
       : "";
 
-    const welcome = isToday && !storeGet(KEY_WELCOME)
+    const welcome = isToday && !storeGet(keys().welcome)
       ? `<div class="welcome">
-          <p>Each day brings one small word, starting with the words toddlers usually say first. Say it slowly, leave a quiet pause, and end while it still feels like play.</p>
+          <p>${esc(child.welcome)}</p>
           <button type="button" data-act="welcome">Got it</button>
         </div>`
       : "";
@@ -424,10 +457,10 @@
           <div class="stage-main">
             <p class="say-bubble" aria-hidden="true"></p>
             <button type="button" class="picture" data-act="picture" aria-label="Hear ${esc(lesson.word)}">
-              ${CynthiaArt.svg(lesson.id)}
+              ${artFor(lesson)}
             </button>
             <div class="pips" aria-hidden="true"><span class="pip"></span><span class="pip"></span><span class="pip"></span></div>
-            <p class="tap-hint">Tap the picture. Say it together.</p>
+            <p class="tap-hint">${esc(child.tapHint)}</p>
           </div>
           <div class="stage-copy">
             <p class="pill">${esc(dayLabel)}</p>
@@ -441,6 +474,7 @@
                 <button type="button" class="btn ghost" data-act="hear-sentence">${speakerIcon()} Hear a sentence</button>
                 ${soundBtn}
               </div>
+              ${lesson.read ? `<button type="button" class="btn ghost" data-act="hear-read">${speakerIcon()} Read it to me</button>` : ""}
               <button type="button" class="btn done-btn ${isDone ? "is-done" : ""}" data-act="done">${starIcon()} ${isDone ? "Practiced" : "We did it"}</button>
               <button type="button" class="undo" data-act="undo" ${isDone ? "" : "hidden"}>Not yet</button>
             </div>
@@ -449,11 +483,13 @@
         </div>
         ${welcome}
         ${tomorrow}
+        ${lesson.read ? `<section class="fact card"><h2>Read this</h2><p>${esc(lesson.read)}</p></section>` : ""}
+        ${quizBlock(lesson)}
         <details class="guide card">
           <summary>
             <span>
               <strong>For grown-ups</strong>
-              <small>About ${esc(lesson.guide.minutes)} · point, say, wait</small>
+              <small>About ${esc(lesson.guide.minutes)} · ${child.id === "noah" ? "read, tap, talk" : "point, say, wait"}</small>
             </span>
             ${chevron(1)}
           </summary>
@@ -467,7 +503,7 @@
               <p>${esc(lesson.guide.activity)}</p>
             </section>
             <section>
-              <h2>Ask Cynthia</h2>
+              <h2>${esc(child.ask)}</h2>
               <p class="ask">“${esc(lesson.guide.question)}”</p>
             </section>
             <section>
@@ -475,11 +511,24 @@
               <p>${esc(lesson.guide.followup)}</p>
             </section>
             <p class="why">${esc(lesson.guide.why)}</p>
-            <p class="guide-foot">Say it once. Wait five quiet seconds. A close sound counts. Stop while she is still having fun.</p>
+            <p class="guide-foot">${esc(child.guideFoot)}</p>
           </div>
         </details>
       </article>`;
     tapCount = 0;
+  }
+
+  function quizBlock(lesson) {
+    if (!lesson.quiz) return "";
+    const choices = lesson.quiz.choices.map((choice, index) => (
+      `<button type="button" class="quiz-choice" data-act="quiz" data-choice="${index}">${esc(choice)}</button>`
+    )).join("");
+    return `<section class="quiz card">
+      <h2>Try this</h2>
+      <p class="quiz-prompt">${esc(lesson.quiz.prompt)}</p>
+      <div class="quiz-choices">${choices}</div>
+      <p class="quiz-result" hidden></p>
+    </section>`;
   }
 
   function dayBar(date, kicker) {
@@ -494,7 +543,7 @@
   }
 
   function renderCalendar(route) {
-    document.title = "Days · Cynthia's Daily Education";
+    document.title = `Days · ${siteTitle()}`;
     const [year, month] = route.month.split("-").map(Number);
     const first = new Date(year, month - 1, 1);
     const startPad = first.getDay();
@@ -518,11 +567,11 @@
     const infoToday = lessonForDate(today());
     const todayCard = infoToday.status === "ok"
       ? `<a class="preview-card card" href="#/">
-          <span class="mini-art">${CynthiaArt.svg(infoToday.lesson.id)}</span>
-          <span><small>Today's word</small><strong>${esc(infoToday.lesson.word)}</strong></span>
+          <span class="mini-art">${artFor(infoToday.lesson)}</span>
+          <span><small>${esc(activeChild().kicker)}</small><strong>${esc(infoToday.lesson.word)}</strong></span>
           ${chevron(1)}
         </a>`
-      : `<a class="preview-card card" href="#/"><span><small>Day 1</small><strong>Mama</strong></span>${chevron(1)}</a>`;
+      : `<a class="preview-card card" href="#/"><span><small>Day 1</small><strong>${esc(lessonList()[0].word)}</strong></span>${chevron(1)}</a>`;
 
     main.innerHTML = `
       <section class="calendar view-enter">
@@ -539,22 +588,22 @@
   }
 
   function renderProgress() {
-    document.title = "Stars · Cynthia's Daily Education";
+    document.title = `Stars · ${siteTitle()}`;
     const done = loadDone();
-    const count = LESSONS.filter((lesson) => done[lesson.id]).length;
+    const count = lessonList().filter((lesson) => done[lesson.id]).length;
     const circ = 2 * Math.PI * 52;
-    const filled = circ * (count / LESSONS.length);
+    const filled = circ * (count / lessonList().length);
     const run = streak(done);
     const start = getStart();
     const info = lessonForDate(today());
     const journey = info.status === "before"
       ? `Day 1 begins ${formatLong(start)}.`
       : `Day 1 began ${formatLong(start)}. Today is day ${info.day}${info.round > 1 ? `, round ${info.round}` : ""}: ${info.lesson.word}.`;
-    const groups = THEMES.map((theme) => {
-      const items = LESSONS.filter((lesson) => lesson.theme === theme.id).map((lesson) => {
+    const groups = themeList().map((theme) => {
+      const items = lessonList().filter((lesson) => lesson.theme === theme.id).map((lesson) => {
         const checked = done[lesson.id] ? `<span class="tick" aria-label="Practiced">${starIcon()}</span>` : "";
         return `<a class="mini" href="#/word/${lesson.id}" data-theme="${theme.id}">
-          <span class="mini-art">${CynthiaArt.svg(lesson.id)}</span>
+          <span class="mini-art">${artFor(lesson)}</span>
           <span class="mini-word">${esc(lesson.word)}</span>
           ${checked}
         </a>`;
@@ -570,9 +619,9 @@
             <circle class="ring-value" cx="60" cy="60" r="52" style="stroke-dasharray:${filled} ${circ}"></circle>
           </svg>
           <div>
-            <p class="kicker">Words practiced</p>
+            <p class="kicker">${esc(activeChild().statLabel)}</p>
             <p class="stat-num">${count}</p>
-            <p class="stat-of">of ${LESSONS.length}</p>
+            <p class="stat-of">of ${lessonList().length}</p>
           </div>
         </div>
         <p class="streak">${run > 0 ? `${run} day${run === 1 ? "" : "s"} in a row` : "Practice a word to start a streak."}</p>
@@ -582,15 +631,30 @@
             <button type="button" class="btn ghost" data-act="restart">Make today Day 1</button>
             <button type="button" class="btn ghost" data-act="clear">Clear stars</button>
           </div>
-          <p class="fine">Stars stay in this browser only. Making today Day 1 keeps the stars you already earned.</p>
+          <p class="fine">Stars stay in this browser only, saved separately for ${esc(activeChild().name)}. Making today Day 1 keeps the stars you already earned.</p>
         </div>
-        <p class="age-note">These words follow a gentle path many toddlers walk around 20 months: people and social words first, then the body, home, animals, food, and actions. Colors and counting come later because they are ideas, not things she can hold. Every child has their own clock. If a word is already easy, enjoy it. If it is sticky, stay another day. This is play, not a test.</p>
+        <p class="age-note">${esc(activeChild().ageNote)}</p>
         ${groups}
       </section>`;
   }
 
+  function renderPicker() {
+    const nav = document.getElementById("children");
+    if (!nav) return;
+    const current = activeChild().id;
+    nav.innerHTML = EDU_CHILDREN.map((item) => `
+      <button type="button" class="child-tab" role="tab" data-act="child" data-child="${item.id}" aria-selected="${item.id === current ? "true" : "false"}">
+        <span class="avatar">${item.avatar}</span>
+        <span class="child-meta"><strong>${esc(item.name)}</strong><small>${esc(item.age)}</small></span>
+      </button>`).join("");
+    const brand = document.querySelector(".brand span");
+    if (brand) brand.textContent = siteTitle();
+    document.body.dataset.child = current;
+  }
+
   function render() {
     const route = parseRoute();
+    renderPicker();
     document.body.dataset.view = route.view;
     if (route.view === "calendar") renderCalendar(route);
     else if (route.view === "progress") renderProgress();
@@ -621,8 +685,8 @@
     slide = delta > 0 ? "forward" : "back";
     if (route.view !== "lesson") return;
     if (route.wordId) {
-      const index = LESSONS.findIndex((lesson) => lesson.id === route.wordId);
-      const next = LESSONS[(index + delta + LESSONS.length) % LESSONS.length];
+      const index = lessonList().findIndex((lesson) => lesson.id === route.wordId);
+      const next = lessonList()[(index + delta + lessonList().length) % lessonList().length];
       go(`#/word/${next.id}`);
       return;
     }
@@ -648,11 +712,45 @@
       burst(target, "stars");
       speakToken += 1;
       setBubble(target.dataset.say);
-      CynthiaAudio.speak(target.dataset.say, { rate: 0.7, pitch: 1.05 });
+      const child = activeChild();
+      CynthiaAudio.speak(target.dataset.say, { rate: child.rates.word, pitch: child.pitch.word });
     } else if (act === "done" && lesson) markDone(lesson, target);
     else if (act === "undo" && lesson) undoDone(lesson);
-    else if (act === "welcome") {
-      storeSet(KEY_WELCOME, "1");
+    else if (act === "child") {
+      const id = target.dataset.child;
+      if (!id || !EDU_CHILDREN.some((item) => item.id === id)) return;
+      storeSet(KEY_CHILD, id);
+      slide = "forward";
+      go(`#/c/${id}`);
+    } else if (act === "hear-read" && lesson) {
+      const text = lesson.read || lesson.sentence;
+      setBubble("Listen");
+      const child = activeChild();
+      speakToken += 1;
+      CynthiaAudio.speak(text, { rate: child.rates.read, pitch: child.pitch.read });
+    } else if (act === "quiz" && lesson && lesson.quiz) {
+      const choice = Number(target.dataset.choice);
+      const quiz = lesson.quiz;
+      const box = target.closest(".quiz");
+      if (!box || target.disabled) return;
+      box.querySelectorAll("[data-act=quiz]").forEach((btn) => {
+        btn.disabled = true;
+        const index = Number(btn.dataset.choice);
+        if (index === quiz.answer) btn.classList.add("is-right");
+        else if (index === choice) btn.classList.add("is-wrong");
+      });
+      const result = box.querySelector(".quiz-result");
+      const ok = choice === quiz.answer;
+      result.hidden = false;
+      result.textContent = ok ? `Yes. ${quiz.explain}` : `Good try. ${quiz.explain}`;
+      if (ok) {
+        confetti(target);
+        CynthiaAudio.celebrate();
+      }
+      const child = activeChild();
+      CynthiaAudio.speak(ok ? `Yes. ${quiz.explain}` : quiz.explain, { rate: child.rates.read, pitch: child.pitch.read });
+    } else if (act === "welcome") {
+      storeSet(keys().welcome, "1");
       const note = document.querySelector(".welcome");
       if (note) note.remove();
     } else if (act === "month") {
@@ -661,13 +759,14 @@
       const next = new Date(y, m - 1 + Number(target.dataset.dir), 1);
       go(`#/calendar/${next.getFullYear()}-${pad(next.getMonth() + 1)}`);
     } else if (act === "restart") {
-      if (window.confirm("Make today Day 1? The next word will be Mama. Stars you already earned will stay.")) {
-        storeSet(KEY_START, isoDate(today()));
-        showToast("Today is Day 1. Hello, Mama.");
+      const child = activeChild();
+      if (window.confirm(child.restartConfirm)) {
+        storeSet(keys().start, isoDate(today()));
+        showToast(child.restartToast);
         go("#/");
       }
     } else if (act === "clear") {
-      if (window.confirm("Clear every star on this device?")) {
+      if (window.confirm(`Clear ${activeChild().name}'s stars on this device?`)) {
         saveDone({});
         showToast("Stars cleared.");
         render();
