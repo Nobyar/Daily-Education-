@@ -25,6 +25,8 @@ vm.runInContext([
   "globalThis.MAYLA = MAYLA_LESSONS;",
   "globalThis.NOAH = NOAH_LESSONS;",
   "globalThis.CHILDREN = EDU_CHILDREN;",
+  "globalThis.ageLabel = ageLabel;",
+  "globalThis.displayedAge = displayedAge;",
 ].join("\n"), context);
 
 const lessons = context.LESSONS;
@@ -247,6 +249,30 @@ expectFact("n-dinosaurs", "66 million years");
 const childKeys = context.CHILDREN.map((child) => child.keys.done);
 if (new Set(childKeys).size !== 4) fail("each child needs a separate stars key");
 if (context.CHILDREN[0].keys.done !== "cynthia-done") fail("Cynthia stars must stay on cynthia-done");
+
+const maylaChild = context.CHILDREN.find((child) => child.id === "mayla");
+if (maylaChild.birthday !== "2025-04-09") fail("Mayla birthday should be 2025-04-09");
+const ageCases = [
+  ["2026-10-14", "18 months"],
+  ["2026-10-08", "17 months"],
+  ["2026-10-09", "18 months"],
+  ["2025-04-09", "0 months"],
+  ["2025-05-09", "1 month"],
+  ["2026-04-09", "12 months"],
+  ["2027-04-08", "23 months"],
+  ["2027-04-09", "24 months"],
+  ["2027-05-09", "2 years 1 month"],
+  ["2028-04-09", "3 years"],
+  ["2028-06-09", "3 years 2 months"],
+];
+ageCases.forEach(([day, label]) => {
+  const found = context.ageLabel("2025-04-09", day);
+  if (found !== label) fail(`age on ${day} should be ${label}, found ${found}`);
+});
+if (context.displayedAge(maylaChild, "2026-10-14") !== "18 months") fail("Mayla should show 18 months on 2026-10-14");
+if (maylaChild.welcome("18 months").includes("19 months")) fail("Mayla welcome still says 19 months");
+if (!maylaChild.welcome("18 months").includes("18 months")) fail("Mayla welcome should use the live age");
+if (context.displayedAge(context.CHILDREN[0], "2026-10-14") !== "20 months") fail("Cynthia age stays 20 months");
 
 const siteFiles = [
   "index.html",

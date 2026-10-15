@@ -1,4 +1,5 @@
-/* Mayla, about 19 months. Her own order, starting with Hi.
+/* Mayla, born April 9, 2025. Her own order, starting with Hi.
+   The words are first words and short phrases, which suit her through toddlerhood.
    Pictures point at Cynthia's artwork. Stars use Mayla's own ids. */
 
 const MAYLA_THEMES = [

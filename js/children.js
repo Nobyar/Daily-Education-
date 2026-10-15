@@ -1,4 +1,37 @@
-/* Child tabs. Cynthia keeps her original storage keys. */
+/* Child tabs. Cynthia keeps her original storage keys.
+   A birthday is an ISO date. Age is counted in completed months:
+   months through 24, then years and months. */
+
+function asLocalDate(onDate) {
+  if (!onDate) return new Date();
+  if (onDate instanceof Date) return onDate;
+  const [year, month, day] = String(onDate).split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function ageMonths(birthdayISO, onDate) {
+  const [year, month, day] = birthdayISO.split("-").map(Number);
+  const date = asLocalDate(onDate);
+  let months = (date.getFullYear() - year) * 12 + (date.getMonth() + 1 - month);
+  if (date.getDate() < day) months -= 1;
+  return Math.max(0, months);
+}
+
+function ageLabel(birthdayISO, onDate) {
+  const total = ageMonths(birthdayISO, onDate || new Date());
+  if (total <= 24) return total === 1 ? "1 month" : `${total} months`;
+  const years = Math.floor(total / 12);
+  const months = total % 12;
+  const yearsText = years === 1 ? "1 year" : `${years} years`;
+  if (months === 0) return yearsText;
+  const monthsText = months === 1 ? "1 month" : `${months} months`;
+  return `${yearsText} ${monthsText}`;
+}
+
+function displayedAge(child, onDate) {
+  if (child.birthday) return ageLabel(child.birthday, onDate || new Date());
+  return child.age;
+}
 
 const EDU_CHILDREN = [
   {
@@ -44,7 +77,7 @@ const EDU_CHILDREN = [
   {
     id: "mayla",
     name: "Mayla",
-    age: "19 months",
+    birthday: "2025-04-09",
     lessons: MAYLA_LESSONS,
     themes: MAYLA_THEMES,
     keys: { start: "cynthia-edu-mayla-start", done: "cynthia-edu-mayla-done", welcome: "cynthia-edu-mayla-welcomed" },
@@ -55,8 +88,12 @@ const EDU_CHILDREN = [
     tapHint: "Tap the picture. Say it together.",
     ask: "Ask Mayla",
     guideFoot: "Say it once. Wait five quiet seconds. A close sound counts. Stop while she is still having fun.",
-    welcome: "Mayla is about 19 months. Each day brings one small word or phrase, in an order made for her. Say it slowly, leave a quiet pause, and end while it still feels like play.",
-    ageNote: "Mayla's path is for about 19 months. It starts with Hi, then the people and things she can use right away, and it builds toward actions, colors, and a little counting. Her stars are separate from her sisters and her brother. A close sound counts. This is play, not a test.",
+    welcome(age) {
+      return `Mayla is ${age}. Each day brings one small word or phrase, in an order made for her. Say it slowly, leave a quiet pause, and end while it still feels like play.`;
+    },
+    ageNote(age) {
+      return `Mayla is ${age}. Her days start with first words and short phrases: Hi, then people, things she can hold, actions, and only later colors and counting. A close sound counts. This is play, not a test.`;
+    },
     restartConfirm: "Make today Day 1? The next word will be Hi. Stars you already earned will stay.",
     restartToast: "Today is Day 1. The word is Hi.",
     avatar: `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="#E5F7F6"/><circle cx="32" cy="28" r="12" fill="#F8D0B4"/><path d="M16 30 C18 8 46 8 50 28 C44 16 24 14 16 30Z" fill="#3A2A22"/><circle cx="22" cy="24" r="6" fill="#3A2A22"/><path d="M18 50 Q32 40 46 50 Q42 60 32 60 Q22 60 18 50Z" fill="#2F9E96"/></svg>`,

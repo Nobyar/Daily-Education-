@@ -32,6 +32,11 @@
     return activeChild().keys;
   }
 
+  function childCopy(child, key) {
+    const value = child[key];
+    return typeof value === "function" ? value(displayedAge(child, today())) : value;
+  }
+
   function siteTitle() {
     return "Pentagonal Daily Education";
   }
@@ -431,7 +436,7 @@
 
     const welcome = isToday && !storeGet(keys().welcome)
       ? `<div class="welcome">
-          <p>${esc(child.welcome)}</p>
+          <p>${esc(childCopy(child, "welcome"))}</p>
           <button type="button" data-act="welcome">Got it</button>
         </div>`
       : "";
@@ -632,7 +637,7 @@
           </div>
           <p class="fine">Stars stay in this browser only, saved separately for ${esc(activeChild().name)}. Making today Day 1 keeps the stars you already earned.</p>
         </div>
-        <p class="age-note">${esc(activeChild().ageNote)}</p>
+        <p class="age-note">${esc(childCopy(activeChild(), "ageNote"))}</p>
         ${groups}
       </section>`;
   }
@@ -644,7 +649,7 @@
     nav.innerHTML = EDU_CHILDREN.map((item) => `
       <button type="button" class="child-tab" role="tab" data-act="child" data-child="${item.id}" aria-selected="${item.id === current ? "true" : "false"}">
         <span class="avatar">${item.avatar}</span>
-        <span class="child-meta"><strong>${esc(item.name)}</strong><small>${esc(item.age)}</small></span>
+        <span class="child-meta"><strong>${esc(item.name)}</strong><small>${esc(displayedAge(item, today()))}</small></span>
       </button>`).join("");
     const brand = document.querySelector(".brand span");
     if (brand) brand.textContent = siteTitle();

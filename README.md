@@ -4,7 +4,7 @@ A calm daily lesson for four children, and a short guide for their parents. The 
 
 - **Cynthia, 20 months.** One word or tiny phrase a day, starting with Mama. Her stars stay in the original browser keys.
 - **Vera, 9 months.** High-contrast pictures, single words, peekaboo, songs, and touch games a parent leads.
-- **Mayla, 19 months.** First words and short phrases in her own order, starting with Hi, with her name in every sentence.
+- **Mayla, born April 9, 2025.** Her tab shows her age from that birthday: months through 24, then years and months. Her lessons are first words and short phrases in her own order, starting with Hi, with her name in every sentence.
 - **Noah, 4 years.** Days alternate between United States history and how nature works. Each lesson has a short true paragraph, a read-aloud button, and a three-tap question.
 
 There is no build step, no account, no ads, and no tracking. Pictures are original SVG. Speech uses the browser’s own voice. Stars are saved in `localStorage` on that device only.
