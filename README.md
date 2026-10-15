@@ -1,4 +1,4 @@
-# Daily Education
+# Pentagonal Daily Education
 
 A calm daily lesson for four children, and a short guide for their parents. The child picker at the top remembers the last child on this device. Each child has a separate set of stars.
 

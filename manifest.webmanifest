@@ -1,7 +1,7 @@
 {
-  "name": "Cynthia's Daily Education",
-  "short_name": "Cynthia",
-  "description": "One gentle word a day for Cynthia, with a short guide for her parents.",
+  "name": "Pentagonal Daily Education",
+  "short_name": "Pentagonal",
+  "description": "Pentagonal Daily Education: a daily lesson for Cynthia, Vera, Mayla, and Noah, with a short guide for parents.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

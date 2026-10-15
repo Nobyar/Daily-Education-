@@ -1,4 +1,4 @@
-/* Cynthia's Daily Education
+/* Pentagonal Daily Education
    Teaching order is the array order. Day 1 is the first object.
    To add a lesson, append an object here and a picture with the same id
    in js/illustrations.js. Keep ids stable: stars are saved by id. */

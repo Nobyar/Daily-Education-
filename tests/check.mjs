@@ -272,6 +272,16 @@ for (const font of ["nunito-400", "nunito-600", "nunito-700", "nunito-800", "bal
   if (!fs.existsSync(path.join(root, "fonts", `${font}.woff2`))) fail(`missing font ${font}`);
 }
 if (!read("css/styles.css").includes("../fonts/nunito-400.woff2")) fail("css is not using the local fonts");
+const brandFiles = ["index.html", "manifest.webmanifest", "README.md", "js/app.js"];
+for (const file of brandFiles) {
+  const text = read(file);
+  if (text.includes("Cynthia's Daily Education")) fail(`${file} still uses the old site name`);
+  if (!text.includes("Pentagonal Daily Education")) fail(`${file} is missing Pentagonal Daily Education`);
+}
+const manifest = JSON.parse(read("manifest.webmanifest"));
+if (manifest.name !== "Pentagonal Daily Education") fail("manifest name");
+if (manifest.short_name !== "Pentagonal") fail("manifest short_name");
+if (!read("index.html").includes("<title>Pentagonal Daily Education</title>")) fail("page title");
 if (!read(".github/workflows/pages.yml").includes("actions/deploy-pages")) fail("pages workflow missing");
 
 if (failures.length) {

@@ -1,4 +1,4 @@
-/* Daily Education — one lesson a day for each child. */
+/* Pentagonal Daily Education — one lesson a day for each child. */
 
 (function () {
   const KEY_CHILD = "cynthia-edu-child";
@@ -33,8 +33,7 @@
   }
 
   function siteTitle() {
-    const child = activeChild();
-    return child.id === "cynthia" ? "Cynthia's Daily Education" : `${child.name}'s Daily Education`;
+    return "Pentagonal Daily Education";
   }
 
   function artFor(lesson) {

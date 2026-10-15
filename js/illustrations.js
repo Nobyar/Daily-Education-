@@ -1,4 +1,4 @@
-/* Pictures for Cynthia's Daily Education.
+/* Pictures for Pentagonal Daily Education.
    Each lesson id has a function in PICTURES. Add a new one when you add a lesson.
    Artwork is original SVG. Nothing is loaded from the network. */
 
