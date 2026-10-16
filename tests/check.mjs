@@ -282,6 +282,34 @@ if (maylaChild.welcome("18 months").includes("19 months")) fail("Mayla welcome s
 if (!maylaChild.welcome("18 months").includes("18 months")) fail("Mayla welcome should use the live age");
 if (context.displayedAge(context.CHILDREN[0], "2026-10-14") !== "20 months") fail("Cynthia age stays 20 months");
 
+const noahChild = context.CHILDREN.find((child) => child.id === "noah");
+if (noahChild.birthday !== "2023-09-18") fail("Noah birthday should be 2023-09-18");
+if (noahChild.age) fail("Noah age should come from his birthday");
+const noahAgeCases = [
+  ["2023-09-18", "0 months"],
+  ["2024-09-18", "12 months"],
+  ["2025-09-17", "23 months"],
+  ["2025-09-18", "24 months"],
+  ["2025-10-18", "2 years 1 month"],
+  ["2026-09-17", "2 years 11 months"],
+  ["2026-09-18", "3 years"],
+  ["2026-10-16", "3 years"],
+  ["2026-10-18", "3 years 1 month"],
+];
+noahAgeCases.forEach(([day, label]) => {
+  const found = context.displayedAge(noahChild, day);
+  if (found !== label) fail(`Noah age on ${day} should be ${label}, found ${found}`);
+});
+if (noahChild.welcome("3 years").includes("4")) fail("Noah welcome still aims at age 4");
+if (!noahChild.welcome("3 years").includes("3 years")) fail("Noah welcome should use the live age");
+if (!noahChild.ageNote("3 years").includes("3 years")) fail("Noah age note should use the live age");
+if (context.NOAH.some((lesson) => /four-year-old/.test(JSON.stringify(lesson)))) {
+  fail("Noah lessons still aim the wording at a 4-year-old");
+}
+if (/Noah is 4|about 4|age 4/.test(read("js/app.js") + read("js/children.js") + read("README.md") + read("js/russian.js"))) {
+  fail("Noah is still described as 4");
+}
+
 const russianWords = context.RUSSIAN_WORDS;
 const russianThemes = new Set(context.RUSSIAN_THEMES.map((theme) => theme.id));
 if (russianWords.length < 40) fail(`expected at least 40 Russian words, found ${russianWords.length}`);

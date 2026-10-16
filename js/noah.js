@@ -1,4 +1,4 @@
-/* Noah, about 4. History and science alternate, starting with history.
+/* Noah's history and science alternate, starting with history.
    Each lesson has a short true read-aloud and a three-choice tap. */
 
 const NOAH_THEMES = [
@@ -32,7 +32,7 @@ function noahLesson(item) {
       activity: item.activity,
       question: item.prompt,
       followup: item.followup,
-      why: "A four-year-old remembers a fact when he hears it, sees it, and chooses with his hands.",
+      why: "He remembers a fact when he hears it, sees it, and chooses with his hands.",
     },
   };
 }

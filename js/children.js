@@ -101,7 +101,7 @@ const EDU_CHILDREN = [
   {
     id: "noah",
     name: "Noah",
-    age: "4 years",
+    birthday: "2023-09-18",
     lessons: NOAH_LESSONS,
     themes: NOAH_THEMES,
     keys: { start: "cynthia-edu-noah-start", done: "cynthia-edu-noah-done", welcome: "cynthia-edu-noah-welcomed" },
@@ -112,8 +112,12 @@ const EDU_CHILDREN = [
     tapHint: "Tap the picture, then try the question.",
     ask: "Ask Noah",
     guideFoot: "Read the fact once. Let him tap an answer. A miss is a chance to hear the true sentence again.",
-    welcome: "Noah is about 4. Each day is a short true story from United States history or from how nature works, plus a three-tap question. Read it aloud and let him choose.",
-    ageNote: "Noah's days alternate between United States history and how nature works. The numbers and dates are meant to be said out loud. A wrong tap is not a failure. Read the true sentence again and try the real world later: a flag, a leaf, a map, or the Moon.",
+    welcome(age) {
+      return `Noah is ${age}. Each day is a short true story from United States history or from how nature works, plus a three-tap question. Read it aloud and let him choose.`;
+    },
+    ageNote(age) {
+      return `Noah is ${age}. His days alternate between United States history and how nature works. The numbers and dates are meant to be said out loud. A wrong tap is a chance to hear the true sentence again, then try the real world later: a flag, a leaf, a map, or the Moon.`;
+    },
     restartConfirm: "Make today Day 1? The next lesson will be The flag. Stars you already earned will stay.",
     restartToast: "Today is Day 1. The lesson is The flag.",
     avatar: `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="#E5F0FC"/><circle cx="32" cy="28" r="12" fill="#F8D0B4"/><path d="M18 24 C20 12 44 12 46 24 C40 18 24 18 18 24Z" fill="#3A2A22"/><path d="M18 50 Q32 40 46 50 Q42 60 32 60 Q22 60 18 50Z" fill="#3E86B8"/></svg>`,

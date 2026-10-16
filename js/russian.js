@@ -1,4 +1,4 @@
-/* Russian words for Noah, age 4. Cyrillic is the spelling to read.
+/* Russian words for Noah. Cyrillic is the spelling to read.
    say is an English-letter guide: the CAPITALS are the strong beat.
    KH is a soft h. ZH is the sound in "treasure". */
 

@@ -753,7 +753,7 @@ let ruLock = false;
           <a class="btn primary" href="#/russian/play">Listening game</a>
           <a class="btn ghost" href="#/">Back to today's lesson</a>
         </div>
-        <p class="guide-foot">Noah is 4, and Russian is new beside English. A close try counts. Say the word once, then wait.</p>
+        <p class="guide-foot">Noah is ${esc(displayedAge(activeChild(), today()))}. Russian is new beside English. A close try counts. Say the word once, then wait.</p>
       </section>`;
   }
 
