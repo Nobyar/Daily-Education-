@@ -20,6 +20,7 @@ vm.runInContext([
   read("js/art-russian.js"),
   read("js/children.js"),
   read("js/russian.js"),
+  read("js/activity.js"),
   "globalThis.LESSONS = CYNTHIA_LESSONS;",
   "globalThis.THEMES = CYNTHIA_THEMES;",
   "globalThis.ART = CynthiaArt;",
@@ -32,6 +33,21 @@ vm.runInContext([
   "globalThis.russianWordForDate = russianWordForDate;",
   "globalThis.russianTheme = russianTheme;",
   "globalThis.russianWordsIn = russianWordsIn;",
+  "globalThis.normalizeActivity = normalizeActivity;",
+  "globalThis.activityAddLesson = activityAddLesson;",
+  "globalThis.activityAddQuiz = activityAddQuiz;",
+  "globalThis.activityAddRussian = activityAddRussian;",
+  "globalThis.activityRemoveLesson = activityRemoveLesson;",
+  "globalThis.activityClearLessons = activityClearLessons;",
+  "globalThis.activityMigrateStars = activityMigrateStars;",
+  "globalThis.activityMigrateRussian = activityMigrateRussian;",
+  "globalThis.activityDates = activityDates;",
+  "globalThis.activityStreak = activityStreak;",
+  "globalThis.activityRecentLessons = activityRecentLessons;",
+  "globalThis.activityDayEntry = activityDayEntry;",
+  "globalThis.progressBlurb = progressBlurb;",
+  "globalThis.blankActivity = blankActivity;",
+  "globalThis.ACTIVITY_KEY = ACTIVITY_KEY;",
   "globalThis.CHILDREN = EDU_CHILDREN;",
   "globalThis.ageLabel = ageLabel;",
   "globalThis.displayedAge = displayedAge;",
@@ -428,6 +444,55 @@ if (!read("index.html").includes("js/russian.js") || !read("index.html").include
   fail("index.html should load the Russian scripts");
 }
 if (context.NOAH.length < 60) fail("Noah history and science lessons should stay");
+if (context.ACTIVITY_KEY !== "cynthia-edu-activity") fail("activity should use its own storage key");
+const sampleBlurb = context.progressBlurb("Mayla", {
+  lessons: 12,
+  days: 9,
+  recent: ["More", "All done"],
+  streak: 3,
+  quizzes: 0,
+  russian: 0,
+});
+if (sampleBlurb !== "Mayla has done 12 lessons over 9 days, most recently More and All done; on a 3-day streak.") {
+  fail(`blurb mismatch: ${sampleBlurb}`);
+}
+if (context.progressBlurb("Cynthia", { lessons: 0, days: 0, recent: [], streak: 0 }) !== "Cynthia has not practiced on this device yet.") {
+  fail("empty blurb");
+}
+const activityLog = context.blankActivity();
+context.activityMigrateStars(activityLog, "mayla", {
+  "m-more": { on: "2026-10-15" },
+  "m-alldone": { on: "2026-10-16" },
+  "m-hi": { on: "2026-10-14" },
+}, "2026-10-16");
+context.activityMigrateStars(activityLog, "mayla", {
+  "m-more": { on: "2026-10-15" },
+  "m-alldone": { on: "2026-10-16" },
+  "m-hi": { on: "2026-10-14" },
+}, "2026-10-16");
+if (context.activityDayEntry(activityLog, "mayla", "2026-10-15").lessons.join() !== "m-more") fail("star migration duplicated a lesson");
+if (context.activityStreak(context.activityDates(activityLog, "mayla"), "2026-10-16") !== 3) fail("activity streak should be 3");
+const recent = context.activityRecentLessons(activityLog, "mayla", 2, (id) => ({ "m-hi": "Hi", "m-more": "More", "m-alldone": "All done" }[id]));
+if (recent.join("|") !== "All done|More") fail(`recent lessons ${recent.join("|")}`);
+context.activityAddQuiz(activityLog, "noah", "2026-10-16", "n-flag", false);
+context.activityAddQuiz(activityLog, "noah", "2026-10-16", "n-flag", true);
+if (context.activityDayEntry(activityLog, "noah", "2026-10-16").quizzes.length !== 1) fail("quiz should be stored once per day");
+if (!context.activityDayEntry(activityLog, "noah", "2026-10-16").quizzes[0].ok) fail("later quiz answer should replace the first");
+context.activityAddRussian(activityLog, "noah", "2026-10-16", "ru-privet");
+context.activityAddRussian(activityLog, "noah", "2026-10-16", "ru-privet");
+if (context.activityDayEntry(activityLog, "noah", "2026-10-16").russian.length !== 1) fail("Russian word should be stored once per day");
+context.activityRemoveLesson(activityLog, "mayla", "m-hi");
+if (context.activityDates(activityLog, "mayla").includes("2026-10-14")) fail("removing the only lesson should clear that day");
+context.activityClearLessons(activityLog, "mayla");
+if (context.activityDates(activityLog, "mayla").length) fail("clearing lessons should drop lesson-only days");
+if (!context.activityDates(activityLog, "noah").includes("2026-10-16")) fail("clearing Mayla should keep Noah's quiz");
+const messy = context.normalizeActivity({ cynthia: { "2026-02-31": { lessons: ["nope"] }, "2026-10-01": { lessons: ["c-mama", "c-mama"], quizzes: [{ id: "c-mama", ok: 1 }] } }, extra: {} });
+if (messy.cynthia["2026-02-31"]) fail("invalid dates should be dropped");
+if (messy.cynthia["2026-10-01"].lessons.length !== 1) fail("duplicate lessons should collapse");
+if (context.activityStreak(["2026-10-14", "2026-10-15"], "2026-10-16") !== 2) fail("streak can end yesterday");
+if (context.activityStreak(["2026-10-14", "2026-10-16"], "2026-10-16") !== 1) fail("a gap ends the streak");
+if (!read("index.html").includes("js/activity.js")) fail("index should load activity.js");
+if (!read("js/app.js").includes("Progress is saved on this device.")) fail("the page should say progress is saved on this device");
 
 const siteFiles = [
   "index.html",
@@ -442,6 +507,7 @@ const siteFiles = [
   "js/art-russian.js",
   "js/children.js",
   "js/russian.js",
+  "js/activity.js",
   "js/audio.js",
   "js/app.js",
   "favicon.svg",

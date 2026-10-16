@@ -23,6 +23,8 @@ The first time a child’s tab opens, that calendar day becomes **Day 1** for th
 
 Use the arrows, a swipe, or the **Days** calendar to open yesterday or a day still ahead. **Stars** marks a lesson practiced. Tap the picture to hear the word. Animal lessons also have a sound button.
 
+**Family** shows every child. Each tab also has a progress note, a count of lessons practiced, and a 14-day meter. The activity calendar marks the days they were active. Tap a day to see the lessons, quizzes, and Russian words from that day. Stars stay on their own keys. Older stars are copied into the activity log the next time the page opens. Progress is saved on this device only.
+
 ## Children
 
 The picker is the row of names under the title. The choice is saved as `cynthia-edu-child`.

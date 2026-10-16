@@ -108,13 +108,17 @@ let ruLock = false;
     return parseISO(saved);
   }
 
-  function loadDone() {
+  function readDone(child) {
     try {
-      const raw = JSON.parse(storeGet(keys().done) || "{}");
+      const raw = JSON.parse(storeGet(child.keys.done) || "{}");
       return raw && typeof raw === "object" ? raw : {};
     } catch (err) {
       return {};
     }
+  }
+
+  function loadDone() {
+    return readDone(activeChild());
   }
 
   function saveDone(done) {
@@ -194,6 +198,21 @@ let ruLock = false;
       return { view: "calendar", month };
     }
     if (parts[0] === "progress") return { view: "progress" };
+    if (parts[0] === "overview") return { view: "overview" };
+    if (parts[0] === "activity") {
+      let index = 1;
+      let childId = activeChild().id;
+      if (EDU_CHILDREN.some((item) => item.id === parts[1])) {
+        childId = parts[1];
+        storeSet(KEY_CHILD, childId);
+        index = 2;
+      }
+      if (parts[index] === "day" && isValidISO(parts[index + 1] || "")) {
+        return { view: "activity-day", childId, dateISO: parts[index + 1] };
+      }
+      const month = /^\d{4}-\d{2}$/.test(parts[index] || "") ? parts[index] : isoDate(today()).slice(0, 7);
+      return { view: "activity", childId, month };
+    }
     if (parts[0] === "russian") {
       storeSet(KEY_CHILD, "noah");
       if (parts[1] === "theme" && russianTheme(parts[2])) return { view: "russian-theme", themeId: parts[2] };
@@ -337,6 +356,7 @@ let ruLock = false;
     const already = Boolean(done[lesson.id]);
     done[lesson.id] = { on: isoDate(today()) };
     saveDone(done);
+    noteLesson(activeChild().id, lesson.id);
     const card = document.querySelector(".done-btn");
     if (card) {
       card.classList.add("is-done");
@@ -364,6 +384,9 @@ let ruLock = false;
     const done = loadDone();
     delete done[lesson.id];
     saveDone(done);
+    const log = ensureActivity();
+    activityRemoveLesson(log, activeChild().id, lesson.id);
+    saveActivity(log);
     showToast(`${lesson.word} is back to not yet.`);
     render();
   }
@@ -434,6 +457,7 @@ let ruLock = false;
             </div>
           </div>
           ${russianDayCard(date)}
+          ${progressCard()}
         </article>`;
       return;
     }
@@ -500,6 +524,7 @@ let ruLock = false;
         ${welcome}
         ${tomorrow}
         ${russianDayCard(date)}
+        ${wordMode ? "" : progressCard()}
         ${lesson.read ? `<section class="fact card"><h2>Read this</h2><p>${esc(lesson.read)}</p></section>` : ""}
         ${quizBlock(lesson)}
         <details class="guide card">
@@ -642,13 +667,15 @@ let ruLock = false;
           </div>
         </div>
         <p class="streak">${run > 0 ? `${run} day${run === 1 ? "" : "s"} in a row` : "Practice a word to start a streak."}</p>
+        <p class="activity-blurb">${esc(childSummary(activeChild(), ensureActivity()).blurb)}</p>
+        ${activityMonth(activeChild().id, isoDate(today()).slice(0, 7), true)}
         <div class="journey card">
           <p>${esc(journey)}</p>
           <div class="action-row">
             <button type="button" class="btn ghost" data-act="restart">Make today Day 1</button>
             <button type="button" class="btn ghost" data-act="clear">Clear stars</button>
           </div>
-          <p class="fine">Stars stay in this browser only, saved separately for ${esc(activeChild().name)}. Making today Day 1 keeps the stars you already earned.</p>
+          <p class="fine">Stars stay in this browser only, saved separately for ${esc(activeChild().name)}. Progress is saved on this device. Making today Day 1 keeps the stars you already earned.</p>
         </div>
         <p class="age-note">${esc(childCopy(activeChild(), "ageNote"))}</p>
         ${activeChild().id === "noah" ? `<a class="preview-card card" href="#/russian"><span><small>Russian</small><strong>${stickerCount()} stickers</strong></span>${chevron(1)}</a>` : ""}
@@ -898,6 +925,248 @@ let ruLock = false;
       </section>`;
   }
 
+  function loadActivity() {
+    try {
+      return normalizeActivity(JSON.parse(storeGet(ACTIVITY_KEY) || "null"));
+    } catch (err) {
+      return blankActivity();
+    }
+  }
+
+  function saveActivity(log) {
+    storeSet(ACTIVITY_KEY, JSON.stringify(log));
+  }
+
+  function ensureActivity() {
+    const log = loadActivity();
+    const before = JSON.stringify(log);
+    const todayISO = isoDate(today());
+    EDU_CHILDREN.forEach((child) => {
+      activityMigrateStars(log, child.id, readDone(child), todayISO);
+    });
+    activityMigrateRussian(log, loadStickers(), todayISO);
+    if (JSON.stringify(log) !== before) saveActivity(log);
+    return log;
+  }
+
+  function paintTodayMeter(childId) {
+    const iso = isoDate(today());
+    document.querySelectorAll(`.meter[data-child="${childId}"] .meter-day`).forEach((el) => {
+      if ((el.getAttribute("href") || "").endsWith(`/day/${iso}`)) el.classList.add("is-on");
+    });
+  }
+
+  function refreshProgressCopy(childId) {
+    paintTodayMeter(childId);
+    if (activeChild().id !== childId) return;
+    const child = EDU_CHILDREN.find((item) => item.id === childId);
+    if (!child) return;
+    const summary = childSummary(child, loadActivity());
+    document.querySelectorAll(".activity-card .activity-count strong").forEach((el) => {
+      el.textContent = String(summary.lessons);
+    });
+    document.querySelectorAll(".activity-card .activity-count span").forEach((el) => {
+      el.textContent = summary.lessons === 1 ? "lesson" : "lessons";
+    });
+    document.querySelectorAll(".activity-card .activity-blurb, .progress .activity-blurb").forEach((el) => {
+      el.textContent = summary.blurb;
+    });
+  }
+
+  function noteLesson(childId, lessonId) {
+    const log = ensureActivity();
+    activityAddLesson(log, childId, isoDate(today()), lessonId);
+    saveActivity(log);
+    refreshProgressCopy(childId);
+  }
+
+  function noteQuiz(childId, lessonId, ok) {
+    const log = ensureActivity();
+    activityAddQuiz(log, childId, isoDate(today()), lessonId, ok);
+    saveActivity(log);
+    refreshProgressCopy(childId);
+  }
+
+  function noteRussian(wordId) {
+    const log = ensureActivity();
+    activityAddRussian(log, "noah", isoDate(today()), wordId);
+    saveActivity(log);
+    refreshProgressCopy("noah");
+  }
+
+  function childSummary(child, log) {
+    const done = readDone(child);
+    const lessons = child.lessons.filter((lesson) => done[lesson.id]).length;
+    const dates = activityDates(log, child.id);
+    const recent = activityRecentLessons(log, child.id, 2, (id) => {
+      if (!done[id]) return "";
+      const lesson = child.lessons.find((item) => item.id === id);
+      return lesson ? lesson.word : "";
+    });
+    const summary = {
+      lessons,
+      days: dates.length,
+      recent,
+      streak: activityStreak(dates, isoDate(today())),
+      quizzes: activityUnique(log, child.id, "quizzes").size,
+      russian: activityUnique(log, child.id, "russian").size,
+    };
+    return { ...summary, blurb: progressBlurb(child.name, summary) };
+  }
+
+  function meterHTML(childId, log) {
+    const todayISO = isoDate(today());
+    const cells = recentDayISOs(todayISO, 14).map((iso) => {
+      const day = activityDayEntry(log, childId, iso);
+      const on = day.lessons.length + day.quizzes.length + day.russian.length > 0;
+      const bits = [];
+      if (day.lessons.length) bits.push(`${day.lessons.length} ${day.lessons.length === 1 ? "lesson" : "lessons"}`);
+      if (day.quizzes.length) bits.push(`${day.quizzes.length} ${day.quizzes.length === 1 ? "quiz" : "quizzes"}`);
+      if (day.russian.length) bits.push(`${day.russian.length} Russian ${day.russian.length === 1 ? "word" : "words"}`);
+      const label = `${formatLong(parseISO(iso))}${bits.length ? `, ${bits.join(", ")}` : ", nothing saved"}`;
+      return `<a class="meter-day${on ? " is-on" : ""}${iso === todayISO ? " is-today" : ""}" href="#/activity/${childId}/day/${iso}" aria-label="${esc(label)}"><span>${Number(iso.slice(-2))}</span></a>`;
+    }).join("");
+    return `<div class="meter" data-child="${childId}">${cells}</div>`;
+  }
+
+  function progressCard() {
+    const child = activeChild();
+    const log = ensureActivity();
+    const summary = childSummary(child, log);
+    return `<section class="activity-card card">
+      <p class="kicker">Progress</p>
+      <p class="activity-count"><strong>${summary.lessons}</strong><span>${summary.lessons === 1 ? "lesson" : "lessons"}</span></p>
+      <p class="activity-blurb">${esc(summary.blurb)}</p>
+      ${meterHTML(child.id, log)}
+      <a class="btn ghost" href="#/activity/${child.id}">Activity calendar</a>
+      <p class="fine">Progress is saved on this device.</p>
+    </section>`;
+  }
+
+  function activityMonth(childId, month, embedded) {
+    const [year, mon] = month.split("-").map(Number);
+    const first = new Date(year, mon - 1, 1);
+    const startPad = first.getDay();
+    const daysInMonth = new Date(year, mon, 0).getDate();
+    const log = ensureActivity();
+    const todayISO = isoDate(today());
+    const cells = [];
+    for (let i = 0; i < startPad; i += 1) cells.push(`<span class="cal-empty"></span>`);
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const date = new Date(year, mon - 1, day);
+      const iso = isoDate(date);
+      const entry = activityDayEntry(log, childId, iso);
+      const active = entry.lessons.length + entry.quizzes.length + entry.russian.length > 0;
+      const classes = ["cal-day"];
+      if (iso === todayISO) classes.push("today");
+      if (active) classes.push("is-active");
+      const label = active ? `${formatLong(date)}, active` : `${formatLong(date)}, nothing saved`;
+      cells.push(`<a class="${classes.join(" ")}" href="#/activity/${childId}/day/${iso}" aria-label="${esc(label)}"><span>${day}</span>${active ? `<i class="dot-activity" aria-hidden="true"></i>` : ""}</a>`);
+    }
+    const prev = new Date(year, mon - 2, 1);
+    const next = new Date(year, mon, 1);
+    const prevMonth = `${prev.getFullYear()}-${pad(prev.getMonth() + 1)}`;
+    const nextMonth = `${next.getFullYear()}-${pad(next.getMonth() + 1)}`;
+    return `<section class="activity-cal${embedded ? " is-embedded" : ""}">
+      <div class="cal-head">
+        <a class="nav-arrow" href="#/activity/${childId}/${prevMonth}" aria-label="Previous month">${chevron(-1)}</a>
+        <h2>${esc(formatMonth(first))}</h2>
+        <a class="nav-arrow" href="#/activity/${childId}/${nextMonth}" aria-label="Next month">${chevron(1)}</a>
+      </div>
+      <div class="cal-week" aria-hidden="true"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+      <div class="cal-grid">${cells.join("")}</div>
+      <p class="cal-note">A filled day is one with a lesson, a quiz, or a Russian word. Tap a day to see it.</p>
+    </section>`;
+  }
+
+  function renderActivity(route) {
+    const child = EDU_CHILDREN.find((item) => item.id === route.childId) || activeChild();
+    document.title = `Active days · ${siteTitle()}`;
+    const summary = childSummary(child, ensureActivity());
+    main.innerHTML = `
+      <section class="activity-page view-enter">
+        <p class="kicker">${esc(child.name)}</p>
+        <h1>Active days</h1>
+        <p class="activity-blurb">${esc(summary.blurb)}</p>
+        ${activityMonth(child.id, route.month, false)}
+        <p class="fine">Progress is saved on this device.</p>
+      </section>`;
+  }
+
+  function renderActivityDay(route) {
+    const child = EDU_CHILDREN.find((item) => item.id === route.childId) || activeChild();
+    const log = ensureActivity();
+    const entry = activityDayEntry(log, child.id, route.dateISO);
+    document.title = `${formatLong(parseISO(route.dateISO))} · ${siteTitle()}`;
+    const lessons = entry.lessons.map((id) => {
+      const lesson = child.lessons.find((item) => item.id === id);
+      if (!lesson) return "";
+      return `<a class="preview-card card" href="#/word/${lesson.id}">
+        <span class="mini-art">${artFor(lesson)}</span>
+        <span><small>Lesson</small><strong>${esc(lesson.word)}</strong></span>
+        ${chevron(1)}
+      </a>`;
+    }).join("");
+    const quizzes = entry.quizzes.map((quiz) => {
+      const lesson = child.lessons.find((item) => item.id === quiz.id);
+      if (!lesson || !lesson.quiz) return "";
+      return `<a class="preview-card card" href="#/word/${lesson.id}">
+        <span class="mini-art">${artFor(lesson)}</span>
+        <span><small>Quiz · ${quiz.ok ? "Yes" : "Good try"}</small><strong>${esc(lesson.quiz.prompt)}</strong></span>
+        ${chevron(1)}
+      </a>`;
+    }).join("");
+    const russian = entry.russian.map((id) => {
+      const word = russianWord(id);
+      if (!word) return "";
+      return `<a class="preview-card card" href="#/russian/word/${word.id}">
+        <span class="mini-art">${CynthiaArt.svg(word.id)}</span>
+        <span><small>Russian · ${esc(word.en)}</small><strong class="cyrillic">${esc(word.cyrillic)}</strong></span>
+        ${chevron(1)}
+      </a>`;
+    }).join("");
+    const empty = !lessons && !quizzes && !russian
+      ? `<p class="activity-blurb">Nothing saved for this day yet.</p>`
+      : "";
+    main.innerHTML = `
+      <section class="activity-page view-enter">
+        <p class="kicker"><a href="#/activity/${child.id}/${route.dateISO.slice(0, 7)}">${esc(child.name)}</a></p>
+        <h1>${esc(formatLong(parseISO(route.dateISO)))}</h1>
+        ${empty}
+        ${lessons}
+        ${quizzes}
+        ${russian}
+        <p class="fine">Progress is saved on this device.</p>
+      </section>`;
+  }
+
+  function renderOverview() {
+    document.title = `Everyone · ${siteTitle()}`;
+    const log = ensureActivity();
+    const cards = EDU_CHILDREN.map((child) => {
+      const summary = childSummary(child, log);
+      return `<article class="family-card card">
+        <a class="family-id" href="#/c/${child.id}">
+          <span class="avatar">${child.avatar}</span>
+          <span><strong>${esc(child.name)}</strong><small>${esc(displayedAge(child, today()))}</small></span>
+          ${chevron(1)}
+        </a>
+        <p class="activity-count"><strong>${summary.lessons}</strong><span>${summary.lessons === 1 ? "lesson" : "lessons"}</span></p>
+        <p class="activity-blurb">${esc(summary.blurb)}</p>
+        ${meterHTML(child.id, log)}
+        <a class="btn ghost" href="#/activity/${child.id}">${esc(child.name)}'s calendar</a>
+      </article>`;
+    }).join("");
+    main.innerHTML = `
+      <section class="overview view-enter">
+        <p class="kicker">All four children</p>
+        <h1>Everyone</h1>
+        <p class="activity-blurb">Each row is the last 14 days. A filled day means that child practiced. Tap a day to see the lessons, quizzes, and Russian words.</p>
+        <div class="family-list">${cards}</div>
+        <p class="fine">Progress is saved on this device.</p>
+      </section>`;
+  }
+
   function renderPicker() {
     const nav = document.getElementById("children");
     if (!nav) return;
@@ -921,6 +1190,9 @@ function render() {
     document.body.dataset.view = route.view;
     if (route.view === "calendar") renderCalendar(route);
     else if (route.view === "progress") renderProgress();
+    else if (route.view === "overview") renderOverview();
+    else if (route.view === "activity") renderActivity(route);
+    else if (route.view === "activity-day") renderActivityDay(route);
     else if (route.view === "russian") renderRussian();
     else if (route.view === "russian-theme") renderRussianTheme(route);
     else if (route.view === "russian-word") renderRussianWord(route);
@@ -930,12 +1202,16 @@ function render() {
       const tab = link.dataset.tab;
       const on = (tab === "today" && route.view === "lesson" && !route.wordId && route.dateISO === isoDate(today()))
         || (tab === "calendar" && route.view === "calendar")
-        || (tab === "progress" && route.view === "progress");
+        || (tab === "progress" && (route.view === "progress" || route.view === "activity" || route.view === "activity-day"))
+        || (tab === "overview" && route.view === "overview");
       link.setAttribute("aria-current", on ? "page" : "false");
     });
     const live = document.getElementById("live");
     const heading = document.querySelector("h1");
     if (live && heading) live.textContent = heading.textContent;
+    document.querySelectorAll(".meter").forEach((meter) => {
+      meter.scrollLeft = meter.scrollWidth;
+    });
   }
 
   function currentLesson() {
@@ -1015,6 +1291,7 @@ function render() {
         CynthiaAudio.celebrate();
       }
       const child = activeChild();
+      noteQuiz(child.id, lesson.id, ok);
       CynthiaAudio.speak(ok ? `Yes. ${quiz.explain}` : quiz.explain, { rate: child.rates.read, pitch: child.pitch.read });
     } else if (act === "welcome") {
       storeSet(keys().welcome, "1");
@@ -1033,8 +1310,12 @@ function render() {
         go("#/");
       }
     } else if (act === "clear") {
-      if (window.confirm(`Clear ${activeChild().name}'s stars on this device?`)) {
+      const child = activeChild();
+      if (window.confirm(`Clear ${child.name}'s stars on this device? Practiced lessons leave the activity calendar. Quizzes and Russian words stay.`)) {
         saveDone({});
+        const log = ensureActivity();
+        activityClearLessons(log, child.id);
+        saveActivity(log);
         showToast("Stars cleared.");
         render();
       }
@@ -1043,10 +1324,13 @@ function render() {
       if (!word) return;
       const wasOpen = dollsOpen.has(word.id) || Boolean(loadStickers()[word.id]);
       dollsOpen.add(word.id);
+      noteRussian(word.id);
       if (!wasOpen) render();
       speakRussian(word);
     } else if (act === "ru-hear") {
-      speakRussian(russianWord(target.dataset.id));
+      const heardWord = russianWord(target.dataset.id);
+      if (heardWord) noteRussian(heardWord.id);
+      speakRussian(heardWord);
     } else if (act === "ru-sticker") {
       const word = russianWord(target.dataset.id);
       if (!word) return;
@@ -1055,6 +1339,7 @@ function render() {
         stickers[word.id] = isoDate(today());
         saveStickers(stickers);
         dollsOpen.add(word.id);
+        noteRussian(word.id);
         confetti(target);
         CynthiaAudio.celebrate();
         showToast("Sticker saved.");
@@ -1066,6 +1351,7 @@ function render() {
       const answer = russianWord(ruRound.answerId);
       if (!picked || !answer) return;
       if (picked.id === answer.id) {
+        noteRussian(answer.id);
         ruLock = true;
         target.classList.add("is-right");
         document.querySelectorAll("[data-act=ru-guess]").forEach((btn) => { btn.disabled = true; });

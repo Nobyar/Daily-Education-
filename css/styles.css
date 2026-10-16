@@ -490,11 +490,13 @@ main {
 .static { margin-bottom: 8px; }
 .static svg { width: min(60vw, 220px); height: auto; border-radius: 32px; margin: 0 auto; }
 
-.calendar h1, .cal-head h1 {
+.calendar h1, .cal-head h1, .cal-head h2, .overview h1, .activity-page h1 {
   font-family: var(--display);
   font-size: 34px;
   text-align: center;
+  margin: 0;
 }
+a.nav-arrow { text-decoration: none; }
 .cal-head {
   display: grid;
   grid-template-columns: var(--tap) 1fr var(--tap);
@@ -614,7 +616,7 @@ main {
   bottom: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
   background: rgba(255, 248, 244, 0.88);
@@ -625,7 +627,7 @@ main {
   text-decoration: none;
   color: var(--muted);
   font-weight: 800;
-  font-size: 13px;
+  font-size: 12px;
   min-height: 56px;
   border-radius: 18px;
   display: flex;
@@ -832,6 +834,84 @@ button:active, .btn:active, .chip:active, .mini:active, .cal-day:active, .nav-ar
   .welcome, .tomorrow { background: rgba(48, 40, 58, 0.8); }
   .ring-track { stroke: rgba(255, 255, 255, 0.12); }
   .blob { opacity: 0.25; }
+  .family-card, .activity-card { background: var(--card); }
+}
+
+.activity-card, .family-card { display: grid; gap: 12px; padding: 16px; }
+.activity-count { display: flex; align-items: baseline; gap: 8px; }
+.activity-count strong { font-family: var(--display); font-size: 56px; line-height: 0.85; }
+.activity-count span, .activity-blurb { font-weight: 700; }
+.activity-blurb { font-size: 17px; margin: 0; }
+.activity-card .btn, .family-card .btn { width: 100%; }
+.meter {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+  scroll-snap-type: x proximity;
+}
+.meter-day {
+  flex: 0 0 44px;
+  height: 52px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+  font-weight: 800;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.72);
+  scroll-snap-align: end;
+  box-shadow: inset 0 0 0 1px rgba(90, 60, 70, 0.06);
+}
+.meter-day.is-today { box-shadow: inset 0 0 0 2px var(--ink); }
+.meter[data-child="cynthia"] .meter-day.is-on { background: #e56b8a; color: #fff; }
+.meter[data-child="vera"] .meter-day.is-on { background: #111; color: #fff; }
+.meter[data-child="mayla"] .meter-day.is-on { background: #2f9e96; color: #fff; }
+.meter[data-child="noah"] .meter-day.is-on { background: #3e86b8; color: #fff; }
+.activity-cal { display: grid; gap: 8px; }
+.activity-cal.is-embedded { margin-top: 8px; }
+body[data-child="cynthia"] .cal-day.is-active { background: #fde7ee; }
+body[data-child="vera"] .cal-day.is-active { background: #fff4d8; }
+body[data-child="mayla"] .cal-day.is-active { background: #e5f7f6; }
+body[data-child="noah"] .cal-day.is-active { background: #e7eefb; }
+.dot-activity {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  background: #e6b34d;
+  bottom: 6px;
+}
+.family-list { display: grid; gap: 14px; }
+.family-id {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+  min-height: var(--tap);
+}
+.family-id strong { display: block; font-family: var(--display); font-size: 28px; }
+.family-id small { color: var(--muted); font-weight: 800; }
+.family-id svg { margin-left: auto; width: 26px; height: 26px; }
+.overview, .activity-page { display: grid; gap: 14px; }
+.activity-page .kicker a { color: inherit; }
+.activity-page .preview-card { margin-top: 0; }
+.activity-page .preview-card strong { font-size: 26px; }
+
+@media (min-width: 860px) {
+  .family-list { grid-template-columns: 1fr 1fr; }
+}
+@media (prefers-color-scheme: dark) {
+  .meter-day { background: #3a3144; color: var(--muted); }
+  .meter[data-child="cynthia"] .meter-day.is-on { background: #e56b8a; color: #fff; }
+  .meter[data-child="vera"] .meter-day.is-on { background: #f6d56a; color: #1a1a1a; }
+  .meter[data-child="mayla"] .meter-day.is-on { background: #2f9e96; color: #fff; }
+  .meter[data-child="noah"] .meter-day.is-on { background: #3e86b8; color: #fff; }
+  body[data-child="cynthia"] .cal-day.is-active { background: #4a3040; }
+  body[data-child="vera"] .cal-day.is-active { background: #3e3420; }
+  body[data-child="mayla"] .cal-day.is-active { background: #1e3836; }
+  body[data-child="noah"] .cal-day.is-active { background: #243044; }
 }
 
 .cyrillic, .ru-cyr {
