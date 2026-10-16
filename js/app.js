@@ -2,6 +2,7 @@
 
 (function () {
   const KEY_CHILD = "cynthia-edu-child";
+  const KEY_RUSSIAN = "cynthia-edu-noah-russian";
 
   const main = document.getElementById("main");
   const toast = document.getElementById("toast");
@@ -12,6 +13,9 @@
   let bubbleTimer = 0;
   let lastCelebrate = 0;
   let slide = "forward";
+const dollsOpen = new Set();
+let ruRound = null;
+let ruLock = false;
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -190,6 +194,13 @@
       return { view: "calendar", month };
     }
     if (parts[0] === "progress") return { view: "progress" };
+    if (parts[0] === "russian") {
+      storeSet(KEY_CHILD, "noah");
+      if (parts[1] === "theme" && russianTheme(parts[2])) return { view: "russian-theme", themeId: parts[2] };
+      if (parts[1] === "word" && russianWord(parts[2])) return { view: "russian-word", wordId: parts[2] };
+      if (parts[1] === "play") return { view: "russian-play", themeId: russianTheme(parts[2]) ? parts[2] : "all" };
+      return { view: "russian" };
+    }
     return { view: "lesson", dateISO: isoDate(today()), wordId: null };
   }
 
@@ -422,6 +433,7 @@
               <a class="btn ghost" href="#/progress">See all the words</a>
             </div>
           </div>
+          ${russianDayCard(date)}
         </article>`;
       return;
     }
@@ -487,6 +499,7 @@
         </div>
         ${welcome}
         ${tomorrow}
+        ${russianDayCard(date)}
         ${lesson.read ? `<section class="fact card"><h2>Read this</h2><p>${esc(lesson.read)}</p></section>` : ""}
         ${quizBlock(lesson)}
         <details class="guide card">
@@ -638,7 +651,250 @@
           <p class="fine">Stars stay in this browser only, saved separately for ${esc(activeChild().name)}. Making today Day 1 keeps the stars you already earned.</p>
         </div>
         <p class="age-note">${esc(childCopy(activeChild(), "ageNote"))}</p>
+        ${activeChild().id === "noah" ? `<a class="preview-card card" href="#/russian"><span><small>Russian</small><strong>${stickerCount()} stickers</strong></span>${chevron(1)}</a>` : ""}
         ${groups}
+      </section>`;
+  }
+
+  function shuffle(list) {
+    const copy = list.slice();
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const swap = copy[i];
+      copy[i] = copy[j];
+      copy[j] = swap;
+    }
+    return copy;
+  }
+
+  function loadStickers() {
+    try {
+      const raw = JSON.parse(storeGet(KEY_RUSSIAN) || "{}");
+      return raw && typeof raw === "object" ? raw : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function saveStickers(stickers) {
+    storeSet(KEY_RUSSIAN, JSON.stringify(stickers));
+  }
+
+  function stickerCount() {
+    const stickers = loadStickers();
+    return RUSSIAN_WORDS.filter((word) => stickers[word.id]).length;
+  }
+
+  async function speakRussian(word) {
+    const note = document.querySelector(".ru-fallback");
+    const show = (text) => {
+      if (!note) return;
+      note.hidden = !text;
+      note.textContent = text || "";
+    };
+    if (!word) return;
+    if (!window.speechSynthesis) {
+      show("This browser will not speak. Read the sounds together.");
+      return;
+    }
+    const heard = await CynthiaAudio.speak(word.cyrillic, { lang: "ru-RU", rate: 0.78, pitch: 1.02 });
+    if (!heard) {
+      show("This device has no Russian voice. Hear the sounds in English, then say them together.");
+      await CynthiaAudio.speak(word.say, { lang: "en-US", rate: 0.72, pitch: 1.04 });
+    } else {
+      show("");
+    }
+  }
+
+  function russianDayCard(date) {
+    if (activeChild().id !== "noah") return "";
+    const word = russianWordForDate(isoDate(date));
+    return `<section class="ru-day card" data-theme="russian">
+      <a class="ru-day-link" href="#/russian/word/${word.id}">
+        <span class="mini-art">${CynthiaArt.svg(word.id)}</span>
+        <span>
+          <small>Russian word of the day</small>
+          <strong class="cyrillic">${esc(word.cyrillic)}</strong>
+          <em>${esc(word.say)} · ${esc(word.en)}</em>
+        </span>
+      </a>
+      <p class="ru-fallback" hidden></p>
+      <div class="actions">
+        <button type="button" class="btn primary" data-act="ru-hear" data-id="${esc(word.id)}">${speakerIcon()} Hear it</button>
+        <a class="btn ghost" href="#/russian">Wander in Russian</a>
+      </div>
+    </section>`;
+  }
+
+  function renderRussian() {
+    document.title = `Russian · ${siteTitle()}`;
+    const stickers = loadStickers();
+    const tiles = RUSSIAN_THEMES.map((theme) => {
+      const words = russianWordsIn(theme.id);
+      const got = words.filter((word) => stickers[word.id]).length;
+      return `<a class="ru-tile card" href="#/russian/theme/${theme.id}">
+        <span class="mini-art">${CynthiaArt.svg(words[0].id)}</span>
+        <span>
+          <strong>${esc(theme.name)}</strong>
+          <small>${esc(theme.place)}</small>
+          <em>${got} of ${words.length} stickers</em>
+        </span>
+        ${chevron(1)}
+      </a>`;
+    }).join("");
+    main.innerHTML = `
+      <section class="russian view-enter" data-theme="russian">
+        <p class="kicker">Noah's Russian</p>
+        <h1>Wander and listen</h1>
+        <p class="ru-lead">Seven places to explore. Open a matryoshka to meet a new word. In the sound guide, the CAPITALS are the strong beat. KH is a soft h. ZH is the sound in treasure.</p>
+        <p class="ru-stars">${stickerCount()} of ${RUSSIAN_WORDS.length} stickers</p>
+        <div class="ru-map">${tiles}</div>
+        <div class="actions">
+          <a class="btn primary" href="#/russian/play">Listening game</a>
+          <a class="btn ghost" href="#/">Back to today's lesson</a>
+        </div>
+        <p class="guide-foot">Noah is 4, and Russian is new beside English. A close try counts. Say the word once, then wait.</p>
+      </section>`;
+  }
+
+  function renderRussianTheme(route) {
+    const theme = russianTheme(route.themeId);
+    document.title = `${theme.name} · ${siteTitle()}`;
+    const stickers = loadStickers();
+    const words = russianWordsIn(theme.id);
+    const cards = words.map((word) => {
+      const got = stickers[word.id] ? `<span class="tick" aria-label="Sticker">${starIcon()}</span>` : "";
+      return `<a class="mini" href="#/russian/word/${word.id}">
+        <span class="mini-art">${CynthiaArt.svg(word.id)}</span>
+        <span class="mini-word cyrillic">${esc(word.cyrillic)}</span>
+        <span class="mini-en">${esc(word.en)}</span>
+        ${got}
+      </a>`;
+    }).join("");
+    main.innerHTML = `
+      <section class="russian view-enter" data-theme="russian">
+        <p class="kicker"><a href="#/russian">Russian</a></p>
+        <h1>${esc(theme.name)}</h1>
+        <p class="ru-place">${esc(theme.place)}</p>
+        <aside class="ru-note card">
+          <h2>A little about this place</h2>
+          <p>${esc(theme.note)}</p>
+        </aside>
+        <div class="word-grid ru-grid">${cards}</div>
+        <div class="actions">
+          <a class="btn primary" href="#/russian/play/${theme.id}">Listen in this place</a>
+          <a class="btn ghost" href="#/russian">All the places</a>
+        </div>
+      </section>`;
+  }
+
+  function renderRussianWord(route) {
+    const word = russianWord(route.wordId);
+    const theme = russianTheme(word.theme);
+    document.title = `${word.en} · ${siteTitle()}`;
+    const stickers = loadStickers();
+    const open = dollsOpen.has(word.id) || Boolean(stickers[word.id]);
+    const words = russianWordsIn(word.theme);
+    const index = words.findIndex((item) => item.id === word.id);
+    const next = words[(index + 1) % words.length];
+    const nextKnown = dollsOpen.has(next.id) || Boolean(stickers[next.id]);
+    const hasSticker = Boolean(stickers[word.id]);
+    const reveal = open
+      ? `<div class="ru-reveal">
+          <div class="ru-picture">${CynthiaArt.svg(word.id)}</div>
+          <p class="cyrillic ru-cyr">${esc(word.cyrillic)}</p>
+          <p class="ru-say">${esc(word.say)}</p>
+          <p class="ru-en">${esc(word.en)}</p>
+          ${word.hint ? `<p class="ru-hint">${esc(word.hint)}</p>` : ""}
+        </div>`
+      : "";
+    main.innerHTML = `
+      <article class="russian view-enter" data-theme="russian">
+        <p class="kicker"><a href="#/russian/theme/${theme.id}">${esc(theme.name)}</a></p>
+        <h1>${open ? esc(word.en) : "Open the doll"}</h1>
+        <button type="button" class="doll ${open ? "is-open" : ""}" data-act="doll" data-id="${esc(word.id)}" aria-expanded="${open ? "true" : "false"}"${open ? "" : ` aria-label="Open the nesting doll"`}>
+          <span class="doll-shell" aria-hidden="true">
+            <span class="doll-top"></span>
+            <span class="doll-body"></span>
+          </span>
+          <span class="doll-inside">${reveal}</span>
+        </button>
+        ${open ? "" : `<p class="doll-caption">Tap the matryoshka. A new word is inside.</p>`}
+        <p class="ru-fallback" hidden></p>
+        <div class="actions">
+          <button type="button" class="btn primary" data-act="ru-hear" data-id="${esc(word.id)}" ${open ? "" : "hidden"}>${speakerIcon()} Hear it</button>
+          <button type="button" class="btn done-btn ${hasSticker ? "is-done" : ""}" data-act="ru-sticker" data-id="${esc(word.id)}" ${open ? "" : "hidden"}>${starIcon()} ${hasSticker ? "Sticker saved" : "Keep this sticker"}</button>
+        </div>
+        <aside class="ru-note card"><p>${esc(theme.note)}</p></aside>
+        <a class="tomorrow" href="#/russian/word/${next.id}">
+          <span>Next doll</span>
+          <strong class="${nextKnown ? "cyrillic" : ""}">${nextKnown ? esc(next.cyrillic) : "A new word"}</strong>
+          ${chevron(1)}
+        </a>
+      </article>`;
+  }
+
+  function makeRuRound(themeId, previous) {
+    const pool = themeId && themeId !== "all" ? russianWordsIn(themeId) : RUSSIAN_WORDS.slice();
+    const used = new Set(previous && previous.used ? previous.used : []);
+    let available = pool.filter((word) => !used.has(word.id));
+    if (!available.length) {
+      used.clear();
+      available = pool.slice();
+    }
+    const answer = available[Math.floor(Math.random() * available.length)];
+    used.add(answer.id);
+    let others = shuffle(pool.filter((word) => word.id !== answer.id));
+    if (others.length < 2) others = shuffle(RUSSIAN_WORDS.filter((word) => word.id !== answer.id));
+    const options = shuffle([answer, ...others.slice(0, 2)]);
+    return {
+      themeId: themeId || "all",
+      answerId: answer.id,
+      optionIds: options.map((item) => item.id),
+      round: previous ? previous.round + 1 : 1,
+      used: [...used],
+      feedback: "",
+      finished: false,
+    };
+  }
+
+  function renderRussianPlay(route) {
+    const themeId = route.themeId || "all";
+    const theme = themeId === "all" ? null : russianTheme(themeId);
+    document.title = `Listen · ${siteTitle()}`;
+    if (!ruRound || ruRound.themeId !== themeId) ruRound = makeRuRound(themeId, null);
+    const back = theme ? `#/russian/theme/${theme.id}` : "#/russian";
+    const place = theme ? theme.name : "All the places";
+    if (ruRound.finished) {
+      main.innerHTML = `
+        <section class="russian view-enter" data-theme="russian">
+          <p class="kicker"><a href="${back}">${esc(place)}</a></p>
+          <h1>You listened</h1>
+          <p class="ru-lead">Four words. That was a kind round of listening.</p>
+          <div class="actions">
+            <button type="button" class="btn primary" data-act="ru-again">Play again</button>
+            <a class="btn ghost" href="${back}">Back</a>
+          </div>
+        </section>`;
+      return;
+    }
+    const choices = ruRound.optionIds.map((id) => {
+      const word = russianWord(id);
+      return `<button type="button" class="ru-choice" data-act="ru-guess" data-id="${esc(word.id)}">
+        <span class="mini-art">${CynthiaArt.svg(word.id)}</span>
+        <span>${esc(word.en)}</span>
+      </button>`;
+    }).join("");
+    main.innerHTML = `
+      <section class="russian view-enter" data-theme="russian">
+        <p class="kicker"><a href="${back}">${esc(place)}</a></p>
+        <h1>Which picture?</h1>
+        <p class="ru-round">Round ${ruRound.round} of 4</p>
+        <button type="button" class="btn primary" data-act="ru-hear" data-id="${esc(ruRound.answerId)}">${speakerIcon()} Hear the word</button>
+        <p class="ru-fallback" hidden></p>
+        <div class="ru-choices">${choices}</div>
+        <p class="ru-feedback"${ruRound.feedback ? "" : " hidden"}>${esc(ruRound.feedback)}</p>
+        <p class="guide-foot">Listen, then tap the picture. A miss just means listen again.</p>
       </section>`;
   }
 
@@ -656,12 +912,19 @@
     document.body.dataset.child = current;
   }
 
-  function render() {
+function render() {
     const route = parseRoute();
+    if (route.view === "russian-play" && document.body.dataset.view !== "russian-play" && ruRound && ruRound.finished) {
+      ruRound = null;
+    }
     renderPicker();
     document.body.dataset.view = route.view;
     if (route.view === "calendar") renderCalendar(route);
     else if (route.view === "progress") renderProgress();
+    else if (route.view === "russian") renderRussian();
+    else if (route.view === "russian-theme") renderRussianTheme(route);
+    else if (route.view === "russian-word") renderRussianWord(route);
+    else if (route.view === "russian-play") renderRussianPlay(route);
     else renderLesson(route);
     document.querySelectorAll(".tabbar a").forEach((link) => {
       const tab = link.dataset.tab;
@@ -775,6 +1038,63 @@
         showToast("Stars cleared.");
         render();
       }
+    } else if (act === "doll") {
+      const word = russianWord(target.dataset.id);
+      if (!word) return;
+      const wasOpen = dollsOpen.has(word.id) || Boolean(loadStickers()[word.id]);
+      dollsOpen.add(word.id);
+      if (!wasOpen) render();
+      speakRussian(word);
+    } else if (act === "ru-hear") {
+      speakRussian(russianWord(target.dataset.id));
+    } else if (act === "ru-sticker") {
+      const word = russianWord(target.dataset.id);
+      if (!word) return;
+      const stickers = loadStickers();
+      if (!stickers[word.id]) {
+        stickers[word.id] = isoDate(today());
+        saveStickers(stickers);
+        dollsOpen.add(word.id);
+        confetti(target);
+        CynthiaAudio.celebrate();
+        showToast("Sticker saved.");
+      }
+      render();
+    } else if (act === "ru-guess") {
+      if (!ruRound || ruRound.finished || ruLock) return;
+      const picked = russianWord(target.dataset.id);
+      const answer = russianWord(ruRound.answerId);
+      if (!picked || !answer) return;
+      if (picked.id === answer.id) {
+        ruLock = true;
+        target.classList.add("is-right");
+        document.querySelectorAll("[data-act=ru-guess]").forEach((btn) => { btn.disabled = true; });
+        confetti(target);
+        CynthiaAudio.celebrate();
+        const themeId = ruRound.themeId;
+        const done = ruRound.round >= 4;
+        window.setTimeout(() => {
+          if (done) ruRound.finished = true;
+          else ruRound = makeRuRound(themeId, ruRound);
+          ruLock = false;
+          render();
+        }, 700);
+      } else {
+        target.classList.add("is-wrong");
+        const text = `That one is ${picked.en}. Listen again.`;
+        ruRound.feedback = text;
+        const feedback = document.querySelector(".ru-feedback");
+        if (feedback) {
+          feedback.hidden = false;
+          feedback.textContent = text;
+        }
+        CynthiaAudio.speak(text, { rate: 0.86, pitch: 1.02 });
+      }
+    } else if (act === "ru-again") {
+      const themeId = ruRound ? ruRound.themeId : "all";
+      ruRound = makeRuRound(themeId, null);
+      ruLock = false;
+      render();
     }
   }
 

@@ -5,7 +5,7 @@ A calm daily lesson for four children, and a short guide for their parents. The 
 - **Cynthia, 20 months.** One word or tiny phrase a day, starting with Mama. Her stars stay in the original browser keys.
 - **Vera, 9 months.** High-contrast pictures, single words, peekaboo, songs, and touch games a parent leads.
 - **Mayla, born April 9, 2025.** Her tab shows her age from that birthday: months through 24, then years and months. Her lessons are first words and short phrases in her own order, starting with Hi, with her name in every sentence.
-- **Noah, 4 years.** Days alternate between United States history and how nature works. Each lesson has a short true paragraph, a read-aloud button, and a three-tap question.
+- **Noah, 4 years.** Days alternate between United States history and how nature works. Each lesson has a short true paragraph, a read-aloud button, and a three-tap question. His lesson screen also shows a Russian word of the day. From there he can wander seven places: greetings, colors, numbers, a snowy forest, a family house, a kitchen, and body words. Each new word starts inside a matryoshka. Speech asks for a Russian voice (`ru-RU`). If the device has none, the page says so and reads the English sound guide.
 
 There is no build step, no account, no ads, and no tracking. Pictures are original SVG. Speech uses the browser’s own voice. Stars are saved in `localStorage` on that device only.
 
@@ -34,7 +34,7 @@ The picker is the row of names under the title. The choice is saved as `cynthia-
 | Mayla | `js/mayla.js` | `cynthia-edu-mayla-start`, `cynthia-edu-mayla-done`, `cynthia-edu-mayla-welcomed` |
 | Noah | `js/noah.js` | `cynthia-edu-noah-start`, `cynthia-edu-noah-done`, `cynthia-edu-noah-welcomed` |
 
-Vera’s pictures are in `js/art-vera.js`. Noah’s are in `js/art-noah.js`. Mayla reuses Cynthia’s pictures through a `picture` field, and her own ids keep her stars separate. Profiles live in `js/children.js`.
+Vera’s pictures are in `js/art-vera.js`. Noah’s lesson pictures are in `js/art-noah.js`. His Russian words live in `js/russian.js`, with pictures in `js/art-russian.js`. Russian stickers are saved as `cynthia-edu-noah-russian`. Mayla reuses Cynthia’s pictures through a `picture` field, and her own ids keep her stars on her own keys. Profiles live in `js/children.js`.
 
 ## Add a lesson
 

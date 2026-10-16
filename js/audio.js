@@ -168,14 +168,50 @@ const CynthiaAudio = (() => {
     return voices.slice().sort((a, b) => score(b) - score(a))[0] || null;
   }
 
+  function russianVoice() {
+    if (!window.speechSynthesis) return null;
+    const voices = speechSynthesis.getVoices().filter((voice) => (
+      (voice.lang || "").toLowerCase().startsWith("ru")
+    ));
+    const score = (voice) => {
+      const name = `${voice.name} ${voice.lang}`.toLowerCase();
+      let s = 0;
+      if (/ru-ru/.test(name)) s += 3;
+      if (/milena|irina|tatyana|katya|female/.test(name)) s += 2;
+      return s;
+    };
+    return voices.sort((a, b) => score(b) - score(a))[0] || null;
+  }
+
+  function whenVoices() {
+    if (!window.speechSynthesis) return Promise.resolve([]);
+    const ready = speechSynthesis.getVoices();
+    if (ready.length) return Promise.resolve(ready);
+    return new Promise((resolve) => {
+      const finish = () => {
+        speechSynthesis.removeEventListener("voiceschanged", finish);
+        resolve(speechSynthesis.getVoices());
+      };
+      speechSynthesis.addEventListener("voiceschanged", finish);
+      window.setTimeout(finish, 400);
+    });
+  }
+
   if (window.speechSynthesis) {
     speechSynthesis.onvoiceschanged = () => pickVoice();
   }
 
   function speak(text, opts) {
     const options = opts || {};
-    return new Promise((resolve) => {
+    const lang = options.lang || "en-US";
+    const wantRussian = lang.toLowerCase().startsWith("ru");
+    return whenVoices().then(() => new Promise((resolve) => {
       if (!window.speechSynthesis) {
+        resolve(false);
+        return;
+      }
+      const voice = wantRussian ? russianVoice() : pickVoice();
+      if (wantRussian && !voice) {
         resolve(false);
         return;
       }
@@ -184,8 +220,7 @@ const CynthiaAudio = (() => {
       utterance = u;
       u.rate = options.rate || 0.72;
       u.pitch = options.pitch || 1.04;
-      u.lang = "en-US";
-      const voice = pickVoice();
+      u.lang = lang;
       if (voice) u.voice = voice;
       let settled = false;
       const finish = () => {
@@ -199,12 +234,16 @@ const CynthiaAudio = (() => {
       window.setTimeout(finish, Math.min(45000, 1600 + String(text).length * 70));
       try { speechSynthesis.resume(); } catch (err) { /* some browsers throw if idle */ }
       speechSynthesis.speak(u);
-    });
+    }));
   }
 
   function has(name) {
     return Boolean(sounds[name]);
   }
 
-  return { unlock, stopSounds, play, celebrate, speak, has };
+  function hasRussian() {
+    return Boolean(russianVoice());
+  }
+
+  return { unlock, stopSounds, play, celebrate, speak, has, hasRussian };
 })();

@@ -17,13 +17,21 @@ vm.runInContext([
   read("js/illustrations.js"),
   read("js/art-vera.js"),
   read("js/art-noah.js"),
+  read("js/art-russian.js"),
   read("js/children.js"),
+  read("js/russian.js"),
   "globalThis.LESSONS = CYNTHIA_LESSONS;",
   "globalThis.THEMES = CYNTHIA_THEMES;",
   "globalThis.ART = CynthiaArt;",
   "globalThis.VERA = VERA_LESSONS;",
   "globalThis.MAYLA = MAYLA_LESSONS;",
   "globalThis.NOAH = NOAH_LESSONS;",
+  "globalThis.RUSSIAN_WORDS = RUSSIAN_WORDS;",
+  "globalThis.RUSSIAN_THEMES = RUSSIAN_THEMES;",
+  "globalThis.russianWord = russianWord;",
+  "globalThis.russianWordForDate = russianWordForDate;",
+  "globalThis.russianTheme = russianTheme;",
+  "globalThis.russianWordsIn = russianWordsIn;",
   "globalThis.CHILDREN = EDU_CHILDREN;",
   "globalThis.ageLabel = ageLabel;",
   "globalThis.displayedAge = displayedAge;",
@@ -274,6 +282,125 @@ if (maylaChild.welcome("18 months").includes("19 months")) fail("Mayla welcome s
 if (!maylaChild.welcome("18 months").includes("18 months")) fail("Mayla welcome should use the live age");
 if (context.displayedAge(context.CHILDREN[0], "2026-10-14") !== "20 months") fail("Cynthia age stays 20 months");
 
+const russianWords = context.RUSSIAN_WORDS;
+const russianThemes = new Set(context.RUSSIAN_THEMES.map((theme) => theme.id));
+if (russianWords.length < 40) fail(`expected at least 40 Russian words, found ${russianWords.length}`);
+const russianIds = new Set();
+const russianSvgs = [];
+russianWords.forEach((word) => {
+  if (!word.id || russianIds.has(word.id)) fail(`bad or duplicate Russian id ${word.id}`);
+  russianIds.add(word.id);
+  if (!word.cyrillic || !/^[\u0400-\u04FF\s?!.\-]+$/.test(word.cyrillic)) {
+    fail(`${word.id} needs Cyrillic spelling, found ${word.cyrillic}`);
+  }
+  if (!word.say || !/^[A-Za-z \-]+$/.test(word.say)) fail(`${word.id} needs a Latin pronunciation guide`);
+  if (!word.en) fail(`${word.id} missing English`);
+  if (!russianThemes.has(word.theme)) fail(`${word.id} has unknown theme ${word.theme}`);
+  const theme = context.russianTheme(word.theme);
+  if (!theme || !theme.note) fail(`${word.theme} needs a cultural note`);
+  const svg = context.ART.svg(word.id);
+  if (!context.ART.ids().includes(word.id) || svg.includes("fallback-bg")) fail(`${word.id} is missing a picture`);
+  russianSvgs.push({ id: word.id, svg });
+});
+for (const theme of context.RUSSIAN_THEMES) {
+  if (context.russianWordsIn(theme.id).length < 1) fail(`${theme.id} has no words`);
+}
+const spelling = {
+  "ru-privet": ["Привет", "pree-VYET", "Hi"],
+  "ru-hello": ["Здравствуйте", "ZDRAHST-vooy-tye", "Hello"],
+  "ru-bye": ["Пока", "pa-KAH", "Bye"],
+  "ru-goodbye": ["До свидания", "duh svee-DAH-nee-ya", "Goodbye"],
+  "ru-please": ["Пожалуйста", "pa-ZHAHL-sta", "Please"],
+  "ru-thanks": ["Спасибо", "spa-SEE-ba", "Thank you"],
+  "ru-yes": ["Да", "DAH", "Yes"],
+  "ru-no": ["Нет", "NYET", "No"],
+  "ru-how": ["Как дела?", "kahk dee-LAH", "How are you?"],
+  "ru-good": ["Хорошо", "kha-ra-SHO", "Good"],
+  "ru-name": ["Меня зовут Ноа", "mee-NYA za-VOOT NO-ah", "My name is Noah"],
+  "ru-red": ["Красный", "KRAHS-niy", "Red"],
+  "ru-blue": ["Синий", "SEE-neey", "Blue"],
+  "ru-yellow": ["Жёлтый", "ZHOL-tiy", "Yellow"],
+  "ru-green": ["Зелёный", "zee-LYOH-niy", "Green"],
+  "ru-white": ["Белый", "BYEH-liy", "White"],
+  "ru-black": ["Чёрный", "CHOR-niy", "Black"],
+  "ru-1": ["Один", "a-DEEN", "One"],
+  "ru-2": ["Два", "DVAH", "Two"],
+  "ru-3": ["Три", "TREE", "Three"],
+  "ru-4": ["Четыре", "chi-TI-rye", "Four"],
+  "ru-5": ["Пять", "PYAHT", "Five"],
+  "ru-6": ["Шесть", "SHEST", "Six"],
+  "ru-7": ["Семь", "SYEM", "Seven"],
+  "ru-8": ["Восемь", "VOH-syem", "Eight"],
+  "ru-9": ["Девять", "DYEH-vyat", "Nine"],
+  "ru-10": ["Десять", "DYEH-syat", "Ten"],
+  "ru-bear": ["Медведь", "myed-VYET", "Bear"],
+  "ru-fox": ["Лиса", "lee-SAH", "Fox"],
+  "ru-wolf": ["Волк", "VOLK", "Wolf"],
+  "ru-hare": ["Заяц", "ZAH-yits", "Hare"],
+  "ru-owl": ["Сова", "sa-VAH", "Owl"],
+  "ru-squirrel": ["Белка", "BYEL-ka", "Squirrel"],
+  "ru-firebird": ["Жар-птица", "zhar-PTEE-tsa", "Firebird"],
+  "ru-mom": ["Мама", "MAH-ma", "Mom"],
+  "ru-dad": ["Папа", "PAH-pa", "Dad"],
+  "ru-brother": ["Брат", "BRAHT", "Brother"],
+  "ru-sister": ["Сестра", "sye-STRAH", "Sister"],
+  "ru-grandma": ["Бабушка", "BAH-boosh-ka", "Grandma"],
+  "ru-grandpa": ["Дедушка", "DYEH-doosh-ka", "Grandpa"],
+  "ru-doll": ["Матрёшка", "mat-RYOSH-ka", "Nesting doll"],
+  "ru-bread": ["Хлеб", "KHLYEP", "Bread"],
+  "ru-milk": ["Молоко", "ma-la-KOH", "Milk"],
+  "ru-apple": ["Яблоко", "YAB-luh-ka", "Apple"],
+  "ru-soup": ["Суп", "SOOP", "Soup"],
+  "ru-borscht": ["Борщ", "BORSHCH", "Borscht"],
+  "ru-water": ["Вода", "va-DAH", "Water"],
+  "ru-nose": ["Нос", "NOHS", "Nose"],
+  "ru-eye": ["Глаз", "GLAHS", "Eye"],
+  "ru-hand": ["Рука", "roo-KAH", "Hand"],
+  "ru-foot": ["Нога", "na-GAH", "Foot"],
+  "ru-ear": ["Ухо", "OO-kha", "Ear"],
+  "ru-mouth": ["Рот", "ROHT", "Mouth"],
+};
+Object.entries(spelling).forEach(([id, expected]) => {
+  const word = context.russianWord(id);
+  if (!word) fail(`missing Russian word ${id}`);
+  else if (word.cyrillic !== expected[0] || word.say !== expected[1] || word.en !== expected[2]) {
+    fail(`${id} should be ${expected.join(" / ")}, found ${word.cyrillic} / ${word.say} / ${word.en}`);
+  }
+});
+["Жёлтый", "Зелёный", "Чёрный", "Матрёшка"].forEach((word) => {
+  if (!word.includes("ё") && !word.includes("Ё")) fail(`${word} should use ё`);
+});
+if (context.russianWordForDate("2026-10-16").id !== context.russianWordForDate("2026-10-16").id) {
+  fail("Russian word of the day is unstable");
+}
+if (context.russianWordForDate("2026-10-16").id === context.russianWordForDate("2026-10-17").id) {
+  fail("the next day should offer a different Russian word");
+}
+if (context.russianWordForDate("2025-01-01").id !== context.russianWordForDate("2025-02-23").id) {
+  fail("Russian word of the day should repeat after the full list");
+}
+const russianXml = spawnSync("python3", ["-c", `
+import json, sys, xml.etree.ElementTree as ET
+items = json.load(sys.stdin)
+bad = []
+for item in items:
+    try:
+        ET.fromstring(item["svg"])
+    except ET.ParseError as err:
+        bad.append(f"{item['id']}: {err}")
+print("\\n".join(bad))
+`], { input: JSON.stringify(russianSvgs) });
+if (russianXml.status !== 0) fail(russianXml.stderr.toString());
+const russianXmlErrors = russianXml.stdout.toString().trim();
+if (russianXmlErrors) fail(russianXmlErrors);
+const audioSource = read("js/audio.js");
+if (!audioSource.includes('resolve(false)')) fail("Russian speech should resolve false when no ru voice is available");
+if (!read("js/app.js").includes('lang: "ru-RU"')) fail("app should request a Russian voice");
+if (!read("index.html").includes("js/russian.js") || !read("index.html").includes("js/art-russian.js")) {
+  fail("index.html should load the Russian scripts");
+}
+if (context.NOAH.length < 60) fail("Noah history and science lessons should stay");
+
 const siteFiles = [
   "index.html",
   "css/styles.css",
@@ -284,7 +411,9 @@ const siteFiles = [
   "js/illustrations.js",
   "js/art-vera.js",
   "js/art-noah.js",
+  "js/art-russian.js",
   "js/children.js",
+  "js/russian.js",
   "js/audio.js",
   "js/app.js",
   "favicon.svg",
@@ -314,4 +443,4 @@ if (failures.length) {
   console.error(failures.join("\n"));
   process.exit(1);
 }
-console.log(`ok cynthia ${lessons.length}, vera ${context.VERA.length}, mayla ${context.MAYLA.length}, noah ${context.NOAH.length}, ${sounds.size} sounds`);
+console.log(`ok cynthia ${lessons.length}, vera ${context.VERA.length}, mayla ${context.MAYLA.length}, noah ${context.NOAH.length}, russian ${russianWords.length}, ${sounds.size} sounds`);
